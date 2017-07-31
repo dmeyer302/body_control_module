@@ -11,6 +11,8 @@ Fading instrument cluster
 
 Fading dome lights
 
+Turn signals including short press for 3 blink lane change
+
 
 
 TODO:
