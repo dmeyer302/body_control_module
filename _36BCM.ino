@@ -6,9 +6,9 @@
   *  
   */
 
-#include <FreqMeasure.h>
 #include <Arduino.h>
-#include <EEPROM.h>
+#include <FreqMeasure.h>  // https://github.com/PaulStoffregen/FreqMeasure
+#include <EEPROM.h>       // https://github.com/PaulStoffregen/EEPROM
 
 
 // Constants
@@ -142,16 +142,22 @@ void setup() {
 
 }
 
+
+
+
 void loop() {
 
-flash();
-brake();
-wipe();
-speedometer();
-status();
-lights();
+  flash();
+  brake();
+  wipe();
+  speedometer();
+  status();
+  lights();
 
 }
+
+
+
 
 
 void lights(){
@@ -184,7 +190,7 @@ void lights(){
             }
             EEPROM.write(instrumentEEPROM,instrumentBrightness);
             analogWrite(instOut,instrumentBrightness);
-            Serial.println(instrumentBrightness);
+            //Serial.println(instrumentBrightness);
           }
 
           else if(digitalRead(instDimmer) && (millis() - instTime > 400)){
@@ -197,7 +203,7 @@ void lights(){
             }
             EEPROM.write(instrumentEEPROM,instrumentBrightness);
             analogWrite(instOut,instrumentBrightness);
-            Serial.println(instrumentBrightness);
+            //Serial.println(instrumentBrightness);
           }
       }
       else {
@@ -208,7 +214,7 @@ void lights(){
 }
 
 
-
+// Status LED (built in) indicates program has not frozen
 void status(){
   if(statusBool && millis() - statusOn > 200){
     statusOff = millis();
@@ -273,13 +279,14 @@ void brake(){
 void wipe(){
   if(digitalRead(wipePin) == HIGH){
     
-    int intermittent = analogRead(intermittentPin);
+    unsigned int intermittent = analogRead(intermittentPin);
+    unsigned int intermittentDelay = map(intermittent, 100, 900, 2000, 30000);
     
     if(intermittent > 900){
       digitalWrite(wipeOut, HIGH);
       }
 
-    else if(intermittent < 900 && intermittent > 100 && (millis() - lastWipe > (intermittent * 100))){
+    else if(intermittent < 900 && intermittent > 100 && (millis() - lastWipe > intermittentDelay)){
       digitalWrite(wipeOut, HIGH);
       }
     
@@ -307,6 +314,7 @@ void wipe(){
 
   else{
     digitalWrite(wipeOut, LOW);
+    digitalWrite(washOut, LOW);
   }
 
 }
@@ -315,6 +323,7 @@ void wipe(){
 void washInterrupt(){
   washTime = millis();
 }
+
 
 void flash(){
 
@@ -357,9 +366,7 @@ else if(blinkMode == 1){
 else if(blinkMode == 2){
     digitalWrite(rfOut,flasherOn);
     digitalWrite(rrOut,flasherOn);
-    }
-
-  
+    }  
 }
 
 void brakeInterrupt(){
@@ -406,6 +413,7 @@ void domeInterrupt(){
   domeStatus = !domeStatus;
 }
 
+
 void instBright(){
   if(digitalRead(parkIn) == HIGH){
   if((millis() - instTime > 100) && instrumentBrightness < 246){
@@ -413,18 +421,19 @@ void instBright(){
     instTime = millis();
     EEPROM.write(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
-    Serial.println(instrumentBrightness);
+    //Serial.println(instrumentBrightness);
   }
 
-  else if(instrumentBrightness >= 245){
+  else if(instrumentBrightness >= 246){
     instrumentBrightness = 255;
     instTime = millis();
     EEPROM.write(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
-    Serial.println(instrumentBrightness);
+    //Serial.println(instrumentBrightness);
   }}
   
 }
+
 
 void instDim(){
   if(digitalRead(parkIn) == HIGH){
@@ -433,15 +442,15 @@ void instDim(){
     instTime = millis();
     EEPROM.write(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
-    Serial.println(instrumentBrightness);
+    //Serial.println(instrumentBrightness);
   }
 
-  else if(instrumentBrightness <= 11){
+  else if(instrumentBrightness <= 10){
     instrumentBrightness = 0;
     instTime = millis();
     EEPROM.write(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
-    Serial.println(instrumentBrightness);
+    //Serial.println(instrumentBrightness);
   }}
   
 }
