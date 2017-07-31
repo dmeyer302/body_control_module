@@ -2,11 +2,18 @@
 
 Software to perform various functions for a car, specifically a custom hot rod build. Code optimized for Arduino / Teensy 3.5.
 
+
 Functions include (no particular order):
 
 Intermittent wipers
 
+Fading instrument cluster
+
 Fading dome lights
+
+
+
+TODO:
 
 Autolamp using sunload sensor
 
@@ -23,4 +30,3 @@ Odometer / Trip storage
 Temp
 
 OLED display out
-
