@@ -25,12 +25,14 @@ Tach output
 
 Various gauges output
 
-Current gear sensing (PRNDL indication)
+OLED display out:
 
-Odometer / Trip storage
+    PRNDL indication
 
-Temp
+    Odometer / Trip storage
 
-OLED display out
+    Temp display
+
+    Clock display
 
 And more...
