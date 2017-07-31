@@ -27,12 +27,12 @@ Various gauges output
 
 OLED display out:
 
-    PRNDL indication
+PRNDL indication
 
-    Odometer / Trip storage
+Odometer / Trip storage
 
-    Temp display
+Temp display
 
-    Clock display
+Clock display
 
 And more...
