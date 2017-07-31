@@ -13,7 +13,7 @@ Fading dome lights
 
 Turn signals including short press for 3 blink lane change
 
-Engine hours storage to EEPROM
+Engine hours stored to EEPROM
 
 
 
@@ -27,6 +27,8 @@ Tach output
 
 Various gauges output
 
+OTIS
+
 OLED display out:
 
 PRNDL indication
@@ -36,5 +38,7 @@ Odometer / Trip storage
 Temp display
 
 Clock display
+
+SecuriCode door-mounted lock/unlock code pad
 
 And more...
