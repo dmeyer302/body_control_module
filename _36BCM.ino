@@ -1,15 +1,38 @@
  /*  
-  *  Body Control Module by Daniel Meyer
+  *  Body Control Module
+  *  Copyright (c) 2017 Daniel Meyer
+  *  dmeyer302@gmail.com
+  *  
   *  Project started August 2017
   *  
-  *  Optimized for Teensy 3.5
+  *  Built for Teensy 3.5
+  *  https://www.pjrc.com/store/teensy35.html
+  *  
+  *  Disclaimer: I can't think of one other than I'm not responsible for your wreck due to using this software.
+  *  You'd have to try really hard to wreck because of this software anyway.
+  *  
+  *  Ok, you insisted, the guys at MIT get paid way too much to think this stuff up anyway so I'll just use it:
+  *  
+  *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  *  
+  *  Enough of that, I'm getting back to coding.
   *  
   */
 
 #include <Arduino.h>
 #include <FreqMeasure.h>  // https://github.com/PaulStoffregen/FreqMeasure
 #include <EEPROM.h>       // https://github.com/PaulStoffregen/EEPROM
+#include <Math.h>
+#include <Wire.h>
+#include <U8g2lib.h>
+U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA); // OLED Constructor, see u8g2 library or examples to find your specific display
 
+// EEPROM
+
+  const byte instrumentEEPROM = 10;
+  const byte hoursEEPROM = 75;
+  byte minutesEEPROM = 80;
+  const byte engineDecMinutesEEPROM = 105;
 
 // Constants
 
@@ -48,11 +71,19 @@
       unsigned int domeBrightness = 0;
       unsigned long domeTime = 0;
       unsigned long instTime = 0;
-      unsigned int instrumentBrightness = EEPROM.read(10);
+      unsigned int instrumentBrightness = 0;
 
-// EEPROM
+      // Odometer, Engine Hours
+      unsigned long incrementalMillis = 0;
+      unsigned int minutes = 0;
+      unsigned int hours = EEPROM.read(hoursEEPROM);
+      float engineHrs = 0;
 
-  const byte instrumentEEPROM = 10;
+      // Display
+      byte displaySelect = 7;
+      unsigned long displaySelectTime = 0;
+
+
 
 
 // Input Pins
@@ -74,6 +105,9 @@
   const byte instBrighter = 29;
   const byte instDimmer = 30;
 
+  const byte runIn = 40;
+  //const byte 
+
 
 // Output Pins
 
@@ -86,8 +120,8 @@
   const byte lrOut = 16;
   const byte rrOut = 17;
   
-  const byte wipeOut = 18;
-  const byte washOut = 19;
+  const byte wipeOut = 41;
+  const byte washOut = 42;
 
   const byte headlightOut = 31;
   const byte parkOut = 32;
@@ -106,11 +140,23 @@
   void domeInterrupt();
   void instBright();
   void instDim();
-  void fog();
+  void fogInterrupt();
+  void status();
+  void getHours();
 
 
 void setup() {
   Serial.begin(9600);
+  u8g2.begin();
+  u8g2.clearBuffer();
+  u8g2.drawBox(0,0,128,32);
+  //u8g2.drawBox(0,0,20,30);
+  u8g2.sendBuffer();
+  delay(100);
+
+  // Uncomment only to reset engine hrs to 0
+  //EEPROM.write(hoursEEPROM,0);
+  //EEPROM.write(minutesEEPROM,0);
 
   FreqMeasure.begin(); // Must be pin 3
   
@@ -125,7 +171,7 @@ void setup() {
   pinMode(headlightIn, INPUT);
   pinMode(autoLampIn, INPUT);
   attachInterrupt(digitalPinToInterrupt(parkIn), parkInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(fogIn), fog, RISING);
+  attachInterrupt(digitalPinToInterrupt(fogIn), fogInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(domeIn), domeInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(instBrighter), instBright, RISING);
   attachInterrupt(digitalPinToInterrupt(instDimmer), instDim, RISING);
@@ -137,7 +183,10 @@ void setup() {
   pinMode(lrOut, OUTPUT);
   pinMode(rrOut, OUTPUT);
 
-  analogWrite(instOut,EEPROM.read(instrumentEEPROM));
+  if(digitalRead(parkIn) == HIGH){
+    parkInterrupt();
+  }
+  //analogWrite(instOut,EEPROM.read(instrumentEEPROM));
 // Gauge sweep here
 
 }
@@ -153,7 +202,10 @@ void loop() {
   speedometer();
   status();
   lights();
-
+  
+  getHours();
+  buildDisplay();
+  
 }
 
 
@@ -162,13 +214,13 @@ void loop() {
 
 void lights(){
         
-          if((domeStatus) && (domeBrightness < 255) && (millis() - domeTime > 15)){
+          if((domeStatus) && (domeBrightness < 255) && (millis() - domeTime > 20)){
             domeBrightness++;
             analogWrite(domeOut, domeBrightness);
             domeTime = millis();
           }
         
-          else if((!domeStatus) && (domeBrightness > 0) && (millis() - domeTime > 20)){
+          else if((!domeStatus) && (domeBrightness > 0) && (millis() - domeTime > 25)){
             domeBrightness--;
             analogWrite(domeOut, domeBrightness);
             domeTime = millis();
@@ -183,12 +235,12 @@ void lights(){
           if(digitalRead(instBrighter) && (millis() - instTime > 400)){
             if(instrumentBrightness < 255){
               instrumentBrightness++;
+              EEPROM.write(instrumentEEPROM,instrumentBrightness);
               delay(5);
             }
             else if(instrumentBrightness >= 255){
               instrumentBrightness = 255;
             }
-            EEPROM.write(instrumentEEPROM,instrumentBrightness);
             analogWrite(instOut,instrumentBrightness);
             //Serial.println(instrumentBrightness);
           }
@@ -196,25 +248,67 @@ void lights(){
           else if(digitalRead(instDimmer) && (millis() - instTime > 400)){
             if(instrumentBrightness > 0){
               instrumentBrightness--;
+              EEPROM.write(instrumentEEPROM,instrumentBrightness);
               delay(5);
             }
             else if(instrumentBrightness <= 0){
               instrumentBrightness = 0;
             }
-            EEPROM.write(instrumentEEPROM,instrumentBrightness);
             analogWrite(instOut,instrumentBrightness);
             //Serial.println(instrumentBrightness);
           }
       }
       else {
-        analogWrite(instOut, 0);
+        if(instrumentBrightness > 0){
+              instrumentBrightness--;
+              delay(5);
+              analogWrite(instOut,instrumentBrightness);
+        }
         digitalWrite(parkOut,LOW);
         }
         
 }
 
+void keyOn(){
+  getHours();
+}
 
-// Status LED (built in) indicates program has not frozen
+void getHours(){
+  if(millis() - incrementalMillis > 60000){
+    incrementalMillis = millis();
+    minutes = EEPROM.read(minutesEEPROM);
+    /*for(int i = 80; i < 99; i++){
+      if(EEPROM.read(minutesEEPROM) < EEPROM.read(minutesEEPROM + 1)){
+        minutes = minutesEEPROM + 1;
+      }*/
+      
+    minutes++;
+    
+    if(minutes >= 60){
+      hours = EEPROM.read(hoursEEPROM);
+      hours++;
+      EEPROM.write(hoursEEPROM,hours);
+      minutes = 0;
+      
+    }
+    
+    EEPROM.write(minutesEEPROM,minutes);
+    
+    //Serial.println(minutes);
+
+    float engineDecMinutes = round(minutes * 0.166666666)/10.0;
+    Serial.println(engineDecMinutes);
+    engineHrs = EEPROM.read(hoursEEPROM);
+    engineHrs += engineDecMinutes;
+    if(engineDecMinutes != EEPROM.read(engineDecMinutesEEPROM)){
+      EEPROM.write(engineDecMinutesEEPROM,engineDecMinutes);
+    }
+    //engineHrs = round( engineHrs * 10 ) / 10;
+    Serial.println(engineHrs);
+  }
+}
+
+// Built-In LED indicates program has not frozen
 void status(){
   if(statusBool && millis() - statusOn > 200){
     statusOff = millis();
@@ -405,7 +499,7 @@ void hazardInterrupt(){
   timePressed = millis();
 }
 
-void fog(){
+void fogInterrupt(){
   fogStatus = !fogStatus;
 }
 
@@ -456,6 +550,143 @@ void instDim(){
 }
 
 void parkInterrupt(){
-  analogWrite(instOut,instrumentBrightness);
+  for(int x = instrumentBrightness; x < EEPROM.read(instrumentEEPROM); x++){
+  analogWrite(instOut,x);
+  instrumentBrightness = x;
+  delay(5);
+  }
+}
+
+void runInterrupt(){
+  incrementalMillis = millis();
+}
+
+void buildDisplay(){
+
+      /*  Display is not currently connected to any variables.
+       *  Present code is to get display laid out.
+       */
+      
+      u8g2.clearBuffer();
+
+      if(millis() - displaySelectTime > 2000){
+        displaySelect++;
+        if(displaySelect == 13){
+          displaySelect = 7;
+         }
+         displaySelectTime = millis();
+      }
+    
+    // Small text
+      
+      //u8g2.setFont(u8g2_font_helvB08_tr);
+    
+      if(displaySelect == 1){ // Park
+        u8g2.setFont(u8g2_font_logisoso32_tf);
+        u8g2.drawStr(0,32,"P");
+  
+        u8g2.setFont(u8g2_font_logisoso22_tf);
+        u8g2.drawStr(22,32,"RND21");
+        }
+    
+      else if(displaySelect == 2){ // R
+        u8g2.setFont(u8g2_font_logisoso32_tf);
+        u8g2.drawStr(18,32,"R");
+  
+        u8g2.setFont(u8g2_font_logisoso22_tf);
+        u8g2.drawStr(0,32,"P");
+        u8g2.drawStr(38,32,"ND21");
+        }
+    
+      else if(displaySelect == 3){ // N
+        u8g2.setFont(u8g2_font_logisoso32_tf);
+        u8g2.drawStr(32,32,"N");
+  
+        u8g2.setFont(u8g2_font_logisoso22_tf);
+        u8g2.drawStr(0,32,"PR");
+        u8g2.drawStr(54,32,"D21");
+        }
+
+      else if(displaySelect == 4){ // D
+        u8g2.setFont(u8g2_font_logisoso32_tf);
+        u8g2.drawStr(48,32,"D");
+  
+        u8g2.setFont(u8g2_font_logisoso22_tf);
+        u8g2.drawStr(0,32,"PRN");
+        u8g2.drawStr(70,32,"21");
+        }
+
+      else if(displaySelect == 5){ // 2
+        u8g2.setFont(u8g2_font_logisoso32_tf);
+        u8g2.drawStr(63,32,"2");
+  
+        u8g2.setFont(u8g2_font_logisoso22_tf);
+        u8g2.drawStr(0,32,"PRND");
+        u8g2.drawStr(84,32,"1");
+        }
+
+      else if(displaySelect == 6){ // 1
+        u8g2.setFont(u8g2_font_logisoso32_tf);
+        u8g2.drawStr(74,32,"1");
+  
+        u8g2.setFont(u8g2_font_logisoso22_tf);
+        u8g2.drawStr(0,32,"PRND2");
+        }
+
+      else if(displaySelect == 7){ // Clock and Temp
+        u8g2.setFont(u8g2_font_logisoso24_tf);
+        u8g2.drawStr(85,32,"72");
+        u8g2.drawStr(0,32,"10:42");
+        u8g2.drawCircle(124,11,3,U8G2_DRAW_ALL); // X,Y,radius
+        }
+
+      else if(displaySelect == 8){ // Odometer
+        u8g2.setFont(u8g2_font_logisoso24_tf);
+        u8g2.drawStr(50,28,"10531");
+        
+        u8g2.setFont(u8g2_font_helvB10_tf);
+        u8g2.drawStr(0,16,"ODO");
+        u8g2.drawStr(0,30,"MI");
+        }
+
+      else if(displaySelect == 9){ // Trip Miles
+        u8g2.setFont(u8g2_font_logisoso24_tf);
+        u8g2.drawStr(50,28,"430.7");
+
+        u8g2.setFont(u8g2_font_helvB10_tf);
+        u8g2.drawStr(0,16,"TRIP");
+        u8g2.drawStr(0,30,"MI");
+        }
+
+      else if(displaySelect == 10){ // Trip Hours
+        u8g2.setFont(u8g2_font_logisoso24_tf);
+        u8g2.drawStr(50,28,"9:56");
+
+        u8g2.setFont(u8g2_font_helvB10_tf);
+        u8g2.drawStr(0,16,"TRIP");
+        u8g2.drawStr(0,30,"HRS");
+        }
+
+      else if(displaySelect == 11){ // Engine Hours
+        u8g2.setFont(u8g2_font_logisoso24_tf);
+        u8g2.drawStr(50,28,"175");
+
+        u8g2.setFont(u8g2_font_helvB10_tf);
+        u8g2.drawStr(0,16,"ENG");
+        u8g2.drawStr(0,30,"HRS");
+        }
+
+      else if(displaySelect == 12){ // Oil Miles
+        u8g2.setFont(u8g2_font_logisoso24_tf);
+        u8g2.drawStr(50,28,"1278");
+
+        u8g2.setFont(u8g2_font_helvB10_tf);
+        u8g2.drawStr(0,16,"OIL");
+        u8g2.drawStr(0,30,"MI");
+        }
+        
+      
+      u8g2.sendBuffer();  
+  
 }
 
