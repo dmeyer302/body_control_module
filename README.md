@@ -15,6 +15,16 @@ Turn signals including short press for 3 blink lane change
 
 Engine hours stored to EEPROM
 
+OLED display out:
+
+PRND21 indication
+
+Odometer / Trip storage
+
+Temp display
+
+Clock display
+
 
 
 TODO:
@@ -28,16 +38,6 @@ Tach output
 Various gauges output
 
 OTIS
-
-OLED display out:
-
-PRNDL indication
-
-Odometer / Trip storage
-
-Temp display
-
-Clock display
 
 SecuriCode door-mounted lock/unlock code pad
 
