@@ -33,6 +33,10 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   const byte hoursEEPROM = 75;
   byte minutesEEPROM = 80;
   const byte engineDecMinutesEEPROM = 105;
+  const byte odometerThousandsEEPROM = 200;
+  const byte odometerHundredsEEPROM = 201;
+  const byte odometerOnesEEPROM = 202;
+  const byte odometerTenthsEEPROM = 203;
 
 // Constants
 
@@ -64,6 +68,7 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
       volatile double sum = 0;    // freqmeasure
       volatile int count = 0;     // freqmeasure
       const byte resolution = 19; // pulses per revolution: 17 for PB, else for test
+      volatile unsigned int milesCount = 0;
 
       // Lights
       bool fogStatus = 0;
@@ -74,13 +79,18 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
       unsigned int instrumentBrightness = 0;
 
       // Odometer, Engine Hours
+      const unsigned int pulsesPerTenth = 500; // VSS Pulses required in 1/10 mile of driving
       unsigned long incrementalMillis = 0;
       unsigned int minutes = 0;
       unsigned int hours = EEPROM.read(hoursEEPROM);
-      float engineHrs = 0;
+      float engineHrs = EEPROM.read(hoursEEPROM) + EEPROM.read(engineDecMinutesEEPROM);
+      unsigned long odometer = 0;
+      unsigned long odometerThousands = 0;
+      int odometerOnes = 0;
+      
 
       // Display
-      byte displaySelect = 7;
+      byte displaySelect = 1;
       unsigned long displaySelectTime = 0;
 
 
@@ -148,6 +158,7 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
 void setup() {
   Serial.begin(9600);
   u8g2.begin();
+  //u8g2.setContrast(80);
   u8g2.clearBuffer();
   u8g2.drawBox(0,0,128,32);
   //u8g2.drawBox(0,0,20,30);
@@ -192,8 +203,6 @@ void setup() {
 }
 
 
-
-
 void loop() {
 
   flash();
@@ -203,7 +212,8 @@ void loop() {
   status();
   lights();
   
-  getHours();
+  getHours(); // Replace with if(key on){keyOn()}
+  getMiles();
   buildDisplay();
   
 }
@@ -242,6 +252,7 @@ void lights(){
               instrumentBrightness = 255;
             }
             analogWrite(instOut,instrumentBrightness);
+            u8g2.setContrast(instrumentBrightness);
             //Serial.println(instrumentBrightness);
           }
 
@@ -253,8 +264,10 @@ void lights(){
             }
             else if(instrumentBrightness <= 0){
               instrumentBrightness = 0;
+              u8g2.setContrast(instrumentBrightness);
             }
             analogWrite(instOut,instrumentBrightness);
+            u8g2.setContrast(instrumentBrightness);
             //Serial.println(instrumentBrightness);
           }
       }
@@ -263,6 +276,7 @@ void lights(){
               instrumentBrightness--;
               delay(5);
               analogWrite(instOut,instrumentBrightness);
+              u8g2.setContrast(instrumentBrightness);
         }
         digitalWrite(parkOut,LOW);
         }
@@ -328,8 +342,16 @@ void speedometer(){
     // average several reading together
     sum = sum + FreqMeasure.read();
     count = count + 1;
+    milesCount++;
+    Serial.print("milesCount ");
+    Serial.println(milesCount);
+    //Serial.print("Sum is ");
+    //Serial.println(sum);
+    Serial.print("Count is ");
+    Serial.println(count);
     if (count > 17) {
       float frequency = FreqMeasure.countToFrequency(sum / count);
+      Serial.print("Freq is ");
       Serial.println(frequency);
       sum = 0;
       count = 0;
@@ -345,6 +367,33 @@ void speedometer(){
   tone(speedOut,speed);
 
   
+}
+
+// TODO: Optimize EEPROM write cycles to reduce significance of EEPROM failure
+void getMiles(){
+  if(milesCount > pulsesPerTenth){
+    
+    EEPROM.write(odometerTenthsEEPROM, EEPROM.read(odometerOnesEEPROM) + 1);
+    
+
+    if(EEPROM.read(odometerTenthsEEPROM) != milesCount){
+      EEPROM.write(odometerTenthsEEPROM,milesCount);
+      }
+    if(EEPROM.read(odometerTenthsEEPROM) == 10){
+      EEPROM.write(odometerOnesEEPROM, EEPROM.read(odometerOnesEEPROM) + 1);
+      EEPROM.write(odometerTenthsEEPROM, 0);
+      }
+    if(EEPROM.read(odometerOnesEEPROM) == 100){
+      EEPROM.write(odometerHundredsEEPROM, EEPROM.read(odometerHundredsEEPROM) + 1);
+      EEPROM.write(odometerOnesEEPROM, 0);
+      }
+    if(EEPROM.read(odometerHundredsEEPROM) == 100){
+      EEPROM.write(odometerThousandsEEPROM, EEPROM.read(odometerThousandsEEPROM) + 1);
+      EEPROM.write(odometerHundredsEEPROM, 0);
+      }
+
+    milesCount = 0;
+  }
 }
 
 void brake(){
@@ -563,6 +612,9 @@ void runInterrupt(){
 
 void buildDisplay(){
 
+      //int line1 = 0;
+      //int line2 = 0;
+
       /*  Display is not currently connected to any variables.
        *  Present code is to get display laid out.
        */
@@ -572,7 +624,7 @@ void buildDisplay(){
       if(millis() - displaySelectTime > 2000){
         displaySelect++;
         if(displaySelect == 13){
-          displaySelect = 7;
+          displaySelect = 10;
          }
          displaySelectTime = millis();
       }
@@ -641,8 +693,17 @@ void buildDisplay(){
         }
 
       else if(displaySelect == 8){ // Odometer
-        u8g2.setFont(u8g2_font_logisoso24_tf);
-        u8g2.drawStr(50,28,"10531");
+        char buf1[12];
+        
+        u8g2.setFont(u8g2_font_logisoso22_tf); // Note change to smaller font due to longer number
+        if(EEPROM.read(odometerThousandsEEPROM) < 1){  // Do not print leading thousands zero
+          sprintf(buf1,"%d%d",EEPROM.read(odometerHundredsEEPROM),EEPROM.read(odometerOnesEEPROM));
+          }
+        else{
+          sprintf(buf1,"%d%d%d",EEPROM.read(odometerThousandsEEPROM),EEPROM.read(odometerHundredsEEPROM),EEPROM.read(odometerOnesEEPROM));
+        }
+        
+        u8g2.drawStr(50,28,buf1+buf2+buf3);
         
         u8g2.setFont(u8g2_font_helvB10_tf);
         u8g2.drawStr(0,16,"ODO");
@@ -668,8 +729,11 @@ void buildDisplay(){
         }
 
       else if(displaySelect == 11){ // Engine Hours
+        char buf3[4];
         u8g2.setFont(u8g2_font_logisoso24_tf);
-        u8g2.drawStr(50,28,"175");
+        float line2 = engineHrs;
+        sprintf(buf3, "%.1f", engineHrs);
+        u8g2.drawStr(60,28,buf3);
 
         u8g2.setFont(u8g2_font_helvB10_tf);
         u8g2.drawStr(0,16,"ENG");
