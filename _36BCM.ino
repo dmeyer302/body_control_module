@@ -3,7 +3,7 @@
   *  Copyright (c) 2017 Daniel Meyer
   *  dmeyer302@gmail.com
   *  
-  *  Project started August 2017
+  *  Project started July 2017
   *  
   *  Built for Teensy 3.5
   *  https://www.pjrc.com/store/teensy35.html
@@ -22,6 +22,7 @@
 #include <Arduino.h>
 #include <FreqMeasure.h>  // https://github.com/PaulStoffregen/FreqMeasure
 #include <EEPROM.h>       // https://github.com/PaulStoffregen/EEPROM
+#include <TimeLib.h>      // https://www.pjrc.com/teensy/td_libs_Time.html#teensy3
 #include <Math.h>
 #include <Wire.h>
 #include <U8g2lib.h>
@@ -37,6 +38,7 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   const byte odometerHundredsEEPROM = 201;
   const byte odometerOnesEEPROM = 202;
   const byte odometerTenthsEEPROM = 203;
+  const byte fuelAlertEEPROM = 300;
 
 // Constants
 
@@ -90,7 +92,7 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
       
 
       // Display
-      byte displaySelect = 1;
+      byte displaySelect = 0;
       unsigned long displaySelectTime = 0;
 
 
@@ -116,7 +118,10 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   const byte instDimmer = 30;
 
   const byte runIn = 40;
-  //const byte 
+  //const byte
+  const byte leftDoorIn = 41;
+  const byte rightDoorIn = 42;
+  const byte fuelIn = 43;
 
 
 // Output Pins
@@ -139,7 +144,6 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   const byte domeOut = 35;
   const byte instOut = 36;
 
-  
 
 // Function Declarations
 
@@ -153,21 +157,37 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   void fogInterrupt();
   void status();
   void getHours();
+  void fuel();
+  void doors();
 
 
 void setup() {
   Serial.begin(9600);
   u8g2.begin();
-  //u8g2.setContrast(80);
+  u8g2.setContrast(EEPROM.read(instrumentEEPROM));
   u8g2.clearBuffer();
   u8g2.drawBox(0,0,128,32);
   //u8g2.drawBox(0,0,20,30);
   u8g2.sendBuffer();
-  delay(100);
+  delay(10);
 
-  // Uncomment only to reset engine hrs to 0
+  // Built In RTC
+  // set the Time library to use Teensy 3.0's RTC to keep time
+  setSyncProvider(getTeensy3Time);
+  /*if (timeStatus()!= timeSet) {
+    Serial.println("Unable to sync with the RTC");
+  } else {
+    Serial.println("RTC has set the system time");
+  }*/
+
+  // Uncomment to set parameters; run sketch only once and re-upload
   //EEPROM.write(hoursEEPROM,0);
   //EEPROM.write(minutesEEPROM,0);
+  //EEPROM.write(odometerTenthsEEPROM, 0);
+  //EEPROM.write(odometerOnesEEPROM, 0);
+  //EEPROM.write(odometerHundredsEEPROM, 0);
+  //EEPROM.write(odometerThousandsEEPROM, 0);
+  //EEPROM.write(fuelAlertEEPROM,128);
 
   FreqMeasure.begin(); // Must be pin 3
   
@@ -215,12 +235,39 @@ void loop() {
   getHours(); // Replace with if(key on){keyOn()}
   getMiles();
   buildDisplay();
+  //fuel();
+
+
+
+  // Uncomment to set Teensy clock to PC clock (unconfirmed)
+  /*if (Serial.available()) {
+    time_t t = processSyncMessage();
+    if (t != 0) {
+      Teensy3Clock.set(t); // set the RTC
+      setTime(t);
+    }
+  }*/
+  //digitalClockDisplay();  
   
 }
 
 
 
+void fuel(){
+  if(analogRead(fuelIn) < EEPROM.read(fuelAlertEEPROM)){
+    displaySelect = 14;
+    // play tone
+    // idiot light on
+  }
+}
 
+void doors(){
+  if(digitalRead(leftDoorIn) == LOW || digitalRead(rightDoorIn) == LOW){
+    domeStatus = 1;
+    displaySelect = 13;
+    // play tone
+  }
+}
 
 void lights(){
         
@@ -288,38 +335,38 @@ void keyOn(){
 }
 
 void getHours(){
-  if(millis() - incrementalMillis > 60000){
-    incrementalMillis = millis();
-    minutes = EEPROM.read(minutesEEPROM);
-    /*for(int i = 80; i < 99; i++){
-      if(EEPROM.read(minutesEEPROM) < EEPROM.read(minutesEEPROM + 1)){
-        minutes = minutesEEPROM + 1;
-      }*/
+    if(millis() - incrementalMillis > 60000){
+      incrementalMillis = millis();
+      minutes = EEPROM.read(minutesEEPROM);
+      /*for(int i = 80; i < 99; i++){
+        if(EEPROM.read(minutesEEPROM) < EEPROM.read(minutesEEPROM + 1)){
+          minutes = minutesEEPROM + 1;
+        }*/
+        
+      minutes++;
       
-    minutes++;
-    
-    if(minutes >= 60){
-      hours = EEPROM.read(hoursEEPROM);
-      hours++;
-      EEPROM.write(hoursEEPROM,hours);
-      minutes = 0;
+      if(minutes >= 60){
+        hours = EEPROM.read(hoursEEPROM);
+        hours++;
+        EEPROM.write(hoursEEPROM,hours);
+        minutes = 0;
+        
+      }
       
+      EEPROM.write(minutesEEPROM,minutes);
+      
+      //Serial.println(minutes);
+  
+      float engineDecMinutes = round(minutes * 0.166666666)/10.0;
+      Serial.println(engineDecMinutes);
+      engineHrs = EEPROM.read(hoursEEPROM);
+      engineHrs += engineDecMinutes;
+      if(engineDecMinutes != EEPROM.read(engineDecMinutesEEPROM)){
+        EEPROM.write(engineDecMinutesEEPROM,engineDecMinutes);
+      }
+      //engineHrs = round( engineHrs * 10 ) / 10;
+      Serial.println(engineHrs);
     }
-    
-    EEPROM.write(minutesEEPROM,minutes);
-    
-    //Serial.println(minutes);
-
-    float engineDecMinutes = round(minutes * 0.166666666)/10.0;
-    Serial.println(engineDecMinutes);
-    engineHrs = EEPROM.read(hoursEEPROM);
-    engineHrs += engineDecMinutes;
-    if(engineDecMinutes != EEPROM.read(engineDecMinutesEEPROM)){
-      EEPROM.write(engineDecMinutesEEPROM,engineDecMinutes);
-    }
-    //engineHrs = round( engineHrs * 10 ) / 10;
-    Serial.println(engineHrs);
-  }
 }
 
 // Built-In LED indicates program has not frozen
@@ -387,7 +434,7 @@ void getMiles(){
       EEPROM.write(odometerHundredsEEPROM, EEPROM.read(odometerHundredsEEPROM) + 1);
       EEPROM.write(odometerOnesEEPROM, 0);
       }
-    if(EEPROM.read(odometerHundredsEEPROM) == 100){
+    if(EEPROM.read(odometerHundredsEEPROM) == 10){
       EEPROM.write(odometerThousandsEEPROM, EEPROM.read(odometerThousandsEEPROM) + 1);
       EEPROM.write(odometerHundredsEEPROM, 0);
       }
@@ -398,67 +445,67 @@ void getMiles(){
 
 void brake(){
 
-  if(digitalRead(brakePin) == HIGH && flashCount < 3){
-    if(blinkMode == 1){
-      digitalWrite(rrOut, HIGH);
+    if(digitalRead(brakePin) == HIGH && flashCount < 3){
+      if(blinkMode == 1){
+        digitalWrite(rrOut, HIGH);
+      }
+  
+      else if(blinkMode == 2){
+        digitalWrite(lrOut, HIGH);
+      }
     }
-
-    else if(blinkMode == 2){
+  
+    else if(digitalRead(brakePin) == HIGH){
+  
       digitalWrite(lrOut, HIGH);
-    }
-  }
-
-  else if(digitalRead(brakePin) == HIGH){
-
-    digitalWrite(lrOut, HIGH);
-    digitalWrite(rrOut, HIGH);
-    
-  }  
+      digitalWrite(rrOut, HIGH);
+      
+    }  
 }
 
 
 
 
 void wipe(){
-  if(digitalRead(wipePin) == HIGH){
-    
-    unsigned int intermittent = analogRead(intermittentPin);
-    unsigned int intermittentDelay = map(intermittent, 100, 900, 2000, 30000);
-    
-    if(intermittent > 900){
-      digitalWrite(wipeOut, HIGH);
+    if(digitalRead(wipePin) == HIGH){
+      
+      unsigned int intermittent = analogRead(intermittentPin);
+      unsigned int intermittentDelay = map(intermittent, 100, 900, 2000, 30000);
+      
+      if(intermittent > 900){
+        digitalWrite(wipeOut, HIGH);
+        }
+  
+      else if(intermittent < 900 && intermittent > 100 && (millis() - lastWipe > intermittentDelay)){
+        digitalWrite(wipeOut, HIGH);
+        }
+      
+      else{
+        digitalWrite(wipeOut, LOW);
+        }
+      
       }
-
-    else if(intermittent < 900 && intermittent > 100 && (millis() - lastWipe > intermittentDelay)){
+  
+  
+    if(digitalRead(washPin) == HIGH){
       digitalWrite(wipeOut, HIGH);
-      }
-    
+      digitalWrite(washOut, HIGH);
+    }
+  
+    // if...else runs wipers when washing. Courtesy wipe after x seconds.
+    if(millis() - washTime < 4000){
+      digitalWrite(wipeOut, HIGH);
+    }
+  
+    // courtesy wipe
+    else if(millis() - washTime > 8000 && millis() - washTime < 9000){
+      digitalWrite(wipeOut, HIGH);
+    }
+  
     else{
       digitalWrite(wipeOut, LOW);
-      }
-    
+      digitalWrite(washOut, LOW);
     }
-
-
-  if(digitalRead(washPin) == HIGH){
-    digitalWrite(wipeOut, HIGH);
-    digitalWrite(washOut, HIGH);
-  }
-
-  // if...else runs wipers when washing. Courtesy wipe after x seconds.
-  if(millis() - washTime < 4000){
-    digitalWrite(wipeOut, HIGH);
-  }
-
-  // courtesy wipe
-  else if(millis() - washTime > 8000 && millis() - washTime < 9000){
-    digitalWrite(wipeOut, HIGH);
-  }
-
-  else{
-    digitalWrite(wipeOut, LOW);
-    digitalWrite(washOut, LOW);
-  }
 
 }
 
@@ -470,46 +517,46 @@ void washInterrupt(){
 
 void flash(){
 
-if(digitalRead(leftTurn) == HIGH || digitalRead(rightTurn) == HIGH || digitalRead(hazard) == HIGH){
-  if(millis() - timePressed > blinkerHold){
-    flashCount = 2;
-    //Serial.println(flashCount);
-  }
-}
-
-if(flasherOn){
-  if(millis() - flashOnTime > blinkerTime){
-    if(digitalRead(brakePin) != HIGH){
-      digitalWrite(lrOut, LOW);
-      digitalWrite(rrOut, LOW);
+    if(digitalRead(leftTurn) == HIGH || digitalRead(rightTurn) == HIGH || digitalRead(hazard) == HIGH){
+      if(millis() - timePressed > blinkerHold){
+        flashCount = 2;
+        //Serial.println(flashCount);
+      }
     }
-    flasherOn = false;
-    flashCount++;
-    //Serial.println(flashCount);
-  }
-  flashOffTime = millis();
-  
-}
-
-if(!flasherOn && flashCount <= 2 && (millis() - flashOffTime > blinkerTime)){
-  flasherOn = true;
-  flashOnTime = millis();
-}
-
-if(blinkMode == 3){
-    digitalWrite(lfOut,flasherOn); 
-    digitalWrite(rfOut,flasherOn);
-    digitalWrite(lrOut,flasherOn);
-    digitalWrite(rrOut,flasherOn);
-             }
-else if(blinkMode == 1){
-    digitalWrite(lfOut,flasherOn);
-    digitalWrite(lrOut,flasherOn);
+    
+    if(flasherOn){
+      if(millis() - flashOnTime > blinkerTime){
+        if(digitalRead(brakePin) != HIGH){
+          digitalWrite(lrOut, LOW);
+          digitalWrite(rrOut, LOW);
+        }
+        flasherOn = false;
+        flashCount++;
+        //Serial.println(flashCount);
+      }
+      flashOffTime = millis();
+      
     }
-else if(blinkMode == 2){
-    digitalWrite(rfOut,flasherOn);
-    digitalWrite(rrOut,flasherOn);
-    }  
+    
+    if(!flasherOn && flashCount <= 2 && (millis() - flashOffTime > blinkerTime)){
+      flasherOn = true;
+      flashOnTime = millis();
+    }
+    
+    if(blinkMode == 3){
+        digitalWrite(lfOut,flasherOn); 
+        digitalWrite(rfOut,flasherOn);
+        digitalWrite(lrOut,flasherOn);
+        digitalWrite(rrOut,flasherOn);
+                 }
+    else if(blinkMode == 1){
+        digitalWrite(lfOut,flasherOn);
+        digitalWrite(lrOut,flasherOn);
+        }
+    else if(blinkMode == 2){
+        digitalWrite(rfOut,flasherOn);
+        digitalWrite(rrOut,flasherOn);
+        }  
 }
 
 void brakeInterrupt(){
@@ -623,8 +670,8 @@ void buildDisplay(){
 
       if(millis() - displaySelectTime > 2000){
         displaySelect++;
-        if(displaySelect == 13){
-          displaySelect = 10;
+        if(displaySelect == 15){
+          displaySelect = 1;
          }
          displaySelectTime = millis();
       }
@@ -632,63 +679,68 @@ void buildDisplay(){
     // Small text
       
       //u8g2.setFont(u8g2_font_helvB08_tr);
-    
+      byte displayOffset = 18;
+      
       if(displaySelect == 1){ // Park
         u8g2.setFont(u8g2_font_logisoso32_tf);
-        u8g2.drawStr(0,32,"P");
+        u8g2.drawStr(0+displayOffset,32,"P");
   
         u8g2.setFont(u8g2_font_logisoso22_tf);
-        u8g2.drawStr(22,32,"RND21");
+        u8g2.drawStr(22+displayOffset,32,"RND21");
         }
     
       else if(displaySelect == 2){ // R
         u8g2.setFont(u8g2_font_logisoso32_tf);
-        u8g2.drawStr(18,32,"R");
+        u8g2.drawStr(18+displayOffset,32,"R");
   
         u8g2.setFont(u8g2_font_logisoso22_tf);
-        u8g2.drawStr(0,32,"P");
-        u8g2.drawStr(38,32,"ND21");
+        u8g2.drawStr(0+displayOffset,32,"P");
+        u8g2.drawStr(38+displayOffset,32,"ND21");
         }
     
       else if(displaySelect == 3){ // N
         u8g2.setFont(u8g2_font_logisoso32_tf);
-        u8g2.drawStr(32,32,"N");
+        u8g2.drawStr(32+displayOffset,32,"N");
   
         u8g2.setFont(u8g2_font_logisoso22_tf);
-        u8g2.drawStr(0,32,"PR");
-        u8g2.drawStr(54,32,"D21");
+        u8g2.drawStr(0+displayOffset,32,"PR");
+        u8g2.drawStr(54+displayOffset,32,"D21");
         }
 
       else if(displaySelect == 4){ // D
         u8g2.setFont(u8g2_font_logisoso32_tf);
-        u8g2.drawStr(48,32,"D");
+        u8g2.drawStr(48+displayOffset,32,"D");
   
         u8g2.setFont(u8g2_font_logisoso22_tf);
-        u8g2.drawStr(0,32,"PRN");
-        u8g2.drawStr(70,32,"21");
+        u8g2.drawStr(0+displayOffset,32,"PRN");
+        u8g2.drawStr(70+displayOffset,32,"21");
         }
 
       else if(displaySelect == 5){ // 2
         u8g2.setFont(u8g2_font_logisoso32_tf);
-        u8g2.drawStr(63,32,"2");
+        u8g2.drawStr(63+displayOffset,32,"2");
   
         u8g2.setFont(u8g2_font_logisoso22_tf);
-        u8g2.drawStr(0,32,"PRND");
-        u8g2.drawStr(84,32,"1");
+        u8g2.drawStr(0+displayOffset,32,"PRND");
+        u8g2.drawStr(84+displayOffset,32,"1");
         }
 
       else if(displaySelect == 6){ // 1
         u8g2.setFont(u8g2_font_logisoso32_tf);
-        u8g2.drawStr(74,32,"1");
+        u8g2.drawStr(74+displayOffset,32,"1");
   
         u8g2.setFont(u8g2_font_logisoso22_tf);
-        u8g2.drawStr(0,32,"PRND2");
+        u8g2.drawStr(0+displayOffset,32,"PRND2");
         }
 
       else if(displaySelect == 7){ // Clock and Temp
+        char buf1[8];
         u8g2.setFont(u8g2_font_logisoso24_tf);
         u8g2.drawStr(85,32,"72");
-        u8g2.drawStr(0,32,"10:42");
+        
+        sprintf(buf1,"%d:%d",hourFormat12(),minute());
+        Serial.println(buf1);
+        u8g2.drawStr(0,32,buf1);
         u8g2.drawCircle(124,11,3,U8G2_DRAW_ALL); // X,Y,radius
         }
 
@@ -702,8 +754,10 @@ void buildDisplay(){
         else{
           sprintf(buf1,"%d%d%d",EEPROM.read(odometerThousandsEEPROM),EEPROM.read(odometerHundredsEEPROM),EEPROM.read(odometerOnesEEPROM));
         }
+        Serial.print("buf1 is ");
+        Serial.println(buf1);
         
-        u8g2.drawStr(50,28,buf1+buf2+buf3);
+        u8g2.drawStr(50,28,buf1);
         
         u8g2.setFont(u8g2_font_helvB10_tf);
         u8g2.drawStr(0,16,"ODO");
@@ -748,9 +802,28 @@ void buildDisplay(){
         u8g2.drawStr(0,16,"OIL");
         u8g2.drawStr(0,30,"MI");
         }
+
+      else if(displaySelect == 13){
+        u8g2.setFont(u8g2_font_logisoso16_tf);
+        u8g2.drawStr(19,24,"DOOR AJAR");
+        if(digitalRead(leftDoorIn) == LOW){
+          u8g2.drawTriangle(0,16,8,22,8,10);
+        }
+        u8g2.drawTriangle(0,16,5,20,5,12);
+        u8g2.drawTriangle(128,16,120,22,120,10);
+      }
+
+      else if(displaySelect == 14){
+        u8g2.setFont(u8g2_font_logisoso22_tf);
+        u8g2.drawStr(7,28,"LOW FUEL");
+      }
         
       
       u8g2.sendBuffer();  
   
 }
 
+//time_t variable = now();
+
+// Set system time to RTC time
+time_t getTeensy3Time(){ return Teensy3Clock.get();}
