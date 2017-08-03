@@ -5,44 +5,44 @@ Software to perform various functions for a car, specifically a custom hot rod b
 
 Functions include (no particular order):
 
-Intermittent wipers
+	Intermittent wipers
 
-Fading instrument cluster
+	Fading instrument cluster
 
-Fading dome lights
+	Fading dome lights
 
-Turn signals including short press for 3 blink lane change
-
-Engine hours stored to EEPROM
+	Turn signals including short press for 3 blink lane change
 
 OLED display out:
 
-PRND21 indication
+	PRND21 indication
 
-Odometer / Trip storage
+	Odometer / Trip storage stored in EEPROM
 
-Temp display
+	Engine hours stored in EEPROM
 
-Clock display
+	Temp display
 
-Door ajar indication (OLED and idiot light)
+	RTC-based clock display
 
-Low fuel indication (OLED and idiot light)
+	Door ajar indication (OLED and idiot light)
+
+	Low fuel indication (OLED and idiot light)
 
 
 
 TODO:
 
-Autolamp using sunload sensor
+	Autolamp using sunload sensor
 
-VSS sensing / Speedometer output
+	VSS sensing / Speedometer output
 
-Tach output
+	Tach output
 
-Various gauges output
+	Various gauges output
 
-OTIS
+	OTIS
 
-SecuriCode door-mounted lock/unlock code pad
+	SecuriCode door-mounted lock/unlock code pad
 
 And more...
