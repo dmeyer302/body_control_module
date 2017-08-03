@@ -25,6 +25,10 @@ Temp display
 
 Clock display
 
+Door ajar indication (OLED and idiot light)
+
+Low fuel indication (OLED and idiot light)
+
 
 
 TODO:
