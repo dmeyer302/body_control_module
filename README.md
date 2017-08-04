@@ -3,7 +3,7 @@
 Software to perform various functions for a car, specifically a custom hot rod build. Code optimized for Arduino / Teensy 3.5.
 
 
-## Functions include (no particular order):
+### Functions include (no particular order):
 
 * Intermittent wipers
 
@@ -13,7 +13,7 @@ Software to perform various functions for a car, specifically a custom hot rod b
 
 * Turn signals including short press for 3 blink lane change
 
-## OLED display out:
+#### OLED display out:
 
 * PRND21 indication
 
@@ -31,7 +31,7 @@ Software to perform various functions for a car, specifically a custom hot rod b
 
 
 
-## TODO:
+### TODO:
 
 * Autolamp using sunload sensor
 
