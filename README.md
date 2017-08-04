@@ -3,46 +3,46 @@
 Software to perform various functions for a car, specifically a custom hot rod build. Code optimized for Arduino / Teensy 3.5.
 
 
-Functions include (no particular order):
+## Functions include (no particular order):
 
-	Intermittent wipers
+* Intermittent wipers
 
-	Fading instrument cluster
+* Fading instrument cluster
 
-	Fading dome lights
+* Fading dome lights
 
-	Turn signals including short press for 3 blink lane change
+* Turn signals including short press for 3 blink lane change
 
-OLED display out:
+## OLED display out:
 
-	PRND21 indication
+* PRND21 indication
 
-	Odometer / Trip storage stored in EEPROM
+* Odometer / Trip storage stored in EEPROM
 
-	Engine hours stored in EEPROM
+* Engine hours stored in EEPROM
 
-	Temp display
+* Temp display
 
-	RTC-based clock display
+* RTC-based clock display
 
-	Door ajar indication (OLED and idiot light)
+* Door ajar indication (OLED and idiot light)
 
-	Low fuel indication (OLED and idiot light)
+* Low fuel indication (OLED and idiot light)
 
 
 
-TODO:
+## TODO:
 
-	Autolamp using sunload sensor
+* Autolamp using sunload sensor
 
-	VSS sensing / Speedometer output
+* VSS sensing / Speedometer output
 
-	Tach output
+* Tach output
 
-	Various gauges output
+* Various gauges output
 
-	OTIS
+* OTIS
 
-	SecuriCode door-mounted lock/unlock code pad
+* SecuriCode door-mounted lock/unlock code pad
 
-And more...
+## And more...
