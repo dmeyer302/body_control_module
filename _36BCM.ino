@@ -20,13 +20,18 @@
   */
 
 #include <Arduino.h>
-#include <FreqMeasure.h>  // https://github.com/PaulStoffregen/FreqMeasure
-#include <EEPROM.h>       // https://github.com/PaulStoffregen/EEPROM
-#include <TimeLib.h>      // https://www.pjrc.com/teensy/td_libs_Time.html#teensy3
-#include <Math.h>
+#include <FreqMeasure.h>        // https://github.com/PaulStoffregen/FreqMeasure
+#include <EEPROM.h>             // https://github.com/PaulStoffregen/EEPROM
+#include <TimeLib.h>            // https://www.pjrc.com/teensy/td_libs_Time.html#teensy3
+#include <Adafruit_MCP23017.h>  // https://github.com/adafruit/Adafruit-MCP23017-Arduino-Library
+//#include <Math.h>
 #include <Wire.h>
 #include <U8g2lib.h>
+
+
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA); // OLED Constructor, see u8g2 library or examples to find your specific display
+Adafruit_MCP23017 lightsMCP;
+
 
 // EEPROM
 
@@ -40,19 +45,15 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   const byte odometerTenthsEEPROM = 203;
   const byte fuelAlertEEPROM = 300;
 
-// Constants
-
-  const int blinkerHold = 350; // millis before blinker will go into constant on mode, ideally slightly less than blinkerTime
-  const int blinkerTime = 400; // millis on and off; 1/2 standard cycle time
-
 
 // Program Variables
 
+    // General
       bool statusBool = 0;
       unsigned long statusOn = 0;
       unsigned long statusOff = 0;
-    
-      // Turn signals
+  
+    // Turn signals
       unsigned long flashTime = 0;
       unsigned long flashOnTime = 0;
       unsigned long flashOffTime = 0;
@@ -60,19 +61,21 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
       bool flasherOn = false;
       byte flashCount = 3;
       byte blinkMode = 1;
-    
-      // Windshield Wipers
+      const int blinkerHold = 350; // millis before blinker will go into constant on mode, ideally slightly less than blinkerTime
+      const int blinkerTime = 400; // millis on and off; 1/2 standard cycle time
+  
+    // Windshield Wipers
       unsigned long washTime = 0;
       unsigned long lastWipe = 0;
-    
-      // Speedometer
+  
+    // Speedometer
       float speed = 0;
       volatile double sum = 0;    // freqmeasure
       volatile int count = 0;     // freqmeasure
       const byte resolution = 19; // pulses per revolution: 17 for PB, else for test
       volatile unsigned int milesCount = 0;
 
-      // Lights
+    // Lights
       bool fogStatus = 0;
       bool domeStatus = 0;
       unsigned int domeBrightness = 0;
@@ -80,7 +83,7 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
       unsigned long instTime = 0;
       unsigned int instrumentBrightness = 0;
 
-      // Odometer, Engine Hours
+    // Odometer, Engine Hours
       const unsigned int pulsesPerTenth = 500; // VSS Pulses required in 1/10 mile of driving
       unsigned long incrementalMillis = 0;
       unsigned int minutes = 0;
@@ -89,9 +92,9 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
       unsigned long odometer = 0;
       unsigned long odometerThousands = 0;
       int odometerOnes = 0;
-      
+    
 
-      // Display
+    // Display
       byte displaySelect = 0;
       unsigned long displaySelectTime = 0;
 
@@ -109,16 +112,18 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   const byte wipePin = 8;
   const byte intermittentPin = 9;
 
-  const byte headlightIn = 24;
-  const byte parkIn = 25;
-  const byte fogIn = 26;
-  const byte autoLampIn = 27;
-  const byte domeIn = 28;
-  const byte instBrighter = 29;
-  const byte instDimmer = 30;
+  //lightsMCP
+  const byte headlightIn =  1;
+  const byte parkIn =       2;
+  const byte fogIn =        3;
+  const byte autoLampIn =   4;
+  const byte domeIn =       5;
+  const byte instBrighter = 6;
+  const byte instDimmer =   7;
 
   const byte runIn = 40;
-  //const byte
+  const byte startIn = 44;
+  
   const byte leftDoorIn = 41;
   const byte rightDoorIn = 42;
   const byte fuelIn = 43;
@@ -128,21 +133,37 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
 
   const byte statusLED = 13; // Onboard Teensy
 
-  const byte speedOut = 20;
+  const byte wipeOut = 41;
+  const byte washOut = 42;
 
+  // Turn indicators
   const byte lfOut = 14;
   const byte rfOut = 15;
   const byte lrOut = 16;
   const byte rrOut = 17;
-  
-  const byte wipeOut = 41;
-  const byte washOut = 42;
 
   const byte headlightOut = 31;
   const byte parkOut = 32;
   const byte fogOut = 33;
   const byte domeOut = 35;
   const byte instOut = 36;
+
+  // Idiot lights
+  /*
+   * Low fuel
+   * Door ajar
+   * E-brake
+   * Cruise
+   */
+
+  // Gauges
+  const byte speedoOut = 10;
+  /*
+   * Oil pressure
+   * Temp
+   * Tach
+   * Fuel
+   */
 
 
 // Function Declarations
@@ -152,8 +173,8 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
   void wipe();
   void speedometer();
   void domeInterrupt();
-  void instBright();
-  void instDim();
+  void instBrightInterrupt();
+  void instDimInterrupt();
   void fogInterrupt();
   void status();
   void getHours();
@@ -163,10 +184,11 @@ U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, 
 
 void setup() {
   Serial.begin(9600);
+  lightsMCP.begin();
   u8g2.begin();
   u8g2.setContrast(EEPROM.read(instrumentEEPROM));
   u8g2.clearBuffer();
-  u8g2.drawBox(0,0,128,32);
+  u8g2.drawBox(0,0,128,32); // Test display on startup
   //u8g2.drawBox(0,0,20,30);
   u8g2.sendBuffer();
   delay(10);
@@ -199,15 +221,20 @@ void setup() {
 
   pinMode(intermittentPin, INPUT);
 
-  pinMode(headlightIn, INPUT);
-  pinMode(autoLampIn, INPUT);
+  // lightsMCP
+  mcp.pinMode(headlightIn, INPUT);
+  mcp.pinMode(autoLampIn, INPUT);
   attachInterrupt(digitalPinToInterrupt(parkIn), parkInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(fogIn), fogInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(domeIn), domeInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(instBrighter), instBright, RISING);
-  attachInterrupt(digitalPinToInterrupt(instDimmer), instDim, RISING);
+  attachInterrupt(digitalPinToInterrupt(instBrighter), instBrightInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(instDimmer), instDimInterrupt, RISING);
+
+  attachInterrupt(digitalPinToInterrupt(startIn), startInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(runIn), runInterrupt, RISING);
 
   pinMode(statusLED, OUTPUT);
+  pinMode(speedoOut, OUTPUT);
   
   pinMode(lfOut, OUTPUT);
   pinMode(rfOut, OUTPUT);
@@ -235,6 +262,7 @@ void loop() {
   getHours(); // Replace with if(key on){keyOn()}
   getMiles();
   buildDisplay();
+  
   //fuel();
 
 
@@ -330,6 +358,10 @@ void lights(){
         
 }
 
+void startInterrupt(){
+  
+}
+
 void keyOn(){
   getHours();
 }
@@ -358,14 +390,14 @@ void getHours(){
       //Serial.println(minutes);
   
       float engineDecMinutes = round(minutes * 0.166666666)/10.0;
-      Serial.println(engineDecMinutes);
+      //Serial.println(engineDecMinutes);
       engineHrs = EEPROM.read(hoursEEPROM);
       engineHrs += engineDecMinutes;
       if(engineDecMinutes != EEPROM.read(engineDecMinutesEEPROM)){
         EEPROM.write(engineDecMinutesEEPROM,engineDecMinutes);
       }
       //engineHrs = round( engineHrs * 10 ) / 10;
-      Serial.println(engineHrs);
+      //Serial.println(engineHrs);
     }
 }
 
@@ -387,31 +419,34 @@ void speedometer(){
 
   if (FreqMeasure.available()) {
     // average several reading together
+    unsigned int correctedFreq = 0;
     sum = sum + FreqMeasure.read();
     count = count + 1;
     milesCount++;
-    Serial.print("milesCount ");
-    Serial.println(milesCount);
+    //Serial.print("milesCount ");
+    //Serial.println(milesCount);
     //Serial.print("Sum is ");
     //Serial.println(sum);
-    Serial.print("Count is ");
-    Serial.println(count);
-    if (count > 17) {
+    //Serial.print("Count is ");
+    //Serial.println(count);
+    if (count > 8) {
       float frequency = FreqMeasure.countToFrequency(sum / count);
       Serial.print("Freq is ");
       Serial.println(frequency);
       sum = 0;
       count = 0;
-      speed = ((float)frequency * 180.0)/resolution;
-      Serial.print("Speed is ");
-      Serial.println(speed);
-      if(speed<10){
-        speed = 0;
+      correctedFreq = ((float)frequency * 100)/100; // Adjust this ratio for speed correction
+      if(correctedFreq < 20){                       // Adjust this number to be the max frequency at which the speedometer rests on the needle post
+        noTone(speedoOut);
       }
+      Serial.print("corrFreq is ");
+      Serial.println(correctedFreq);
+      tone(speedoOut,correctedFreq);
     }
+    
   }
 
-  tone(speedOut,speed);
+  
 
   
 }
@@ -604,7 +639,7 @@ void domeInterrupt(){
 }
 
 
-void instBright(){
+void instBrightInterrupt(){
   if(digitalRead(parkIn) == HIGH){
   if((millis() - instTime > 100) && instrumentBrightness < 246){
     instrumentBrightness += 10;
@@ -625,7 +660,7 @@ void instBright(){
 }
 
 
-void instDim(){
+void instDimInterrupt(){
   if(digitalRead(parkIn) == HIGH){
   if((millis() - instTime > 100) && instrumentBrightness > 10){
     instrumentBrightness -= 10;
@@ -739,7 +774,7 @@ void buildDisplay(){
         u8g2.drawStr(85,32,"72");
         
         sprintf(buf1,"%d:%d",hourFormat12(),minute());
-        Serial.println(buf1);
+        //Serial.println(buf1);
         u8g2.drawStr(0,32,buf1);
         u8g2.drawCircle(124,11,3,U8G2_DRAW_ALL); // X,Y,radius
         }
@@ -754,8 +789,6 @@ void buildDisplay(){
         else{
           sprintf(buf1,"%d%d%d",EEPROM.read(odometerThousandsEEPROM),EEPROM.read(odometerHundredsEEPROM),EEPROM.read(odometerOnesEEPROM));
         }
-        Serial.print("buf1 is ");
-        Serial.println(buf1);
         
         u8g2.drawStr(50,28,buf1);
         
