@@ -23,16 +23,16 @@ Software to perform various functions for a car, specifically a custom hot rod b
 
 ### Hardware used
 
-#### Electronics
-* Teensy 3.5
-* 0.96" 128x32 OLED
-* MCP23017 I2C IO Expander
-#### Car stuff
-* 98-01 Ford Ranger dash
-* 1990 Ford AOD VSS and gear sensor
-* 13-16 Ford Escape exterior temp sensor
-* 12-17 Explorer headlight switch, if I can get CAN-bus figured out
-* SecuriCode keypad F8DB-14A636-ABW (later versions probably not recommended due to using CAN-bus)
+  #### Electronics
+  * Teensy 3.5
+  * 0.96" 128x32 OLED
+  * MCP23017 I2C IO Expander
+  #### Car stuff
+  * 98-01 Ford Ranger dash
+  * 1990 Ford AOD VSS and gear sensor
+  * 13-16 Ford Escape exterior temp sensor
+  * 12-17 Explorer headlight switch, if I can get CAN-bus figured out
+  * SecuriCode keypad F8DB-14A636-ABW (later versions probably not recommended due to using CAN-bus)
 
 
 ### TODO:
