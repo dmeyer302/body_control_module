@@ -22,11 +22,14 @@ Software to perform various functions for a car, specifically a custom hot rod b
 * Low fuel indication (OLED and idiot light)
 
 ### Hardware used
+This list is growing...
 
   #### Electronics
   * Teensy 3.5
   * 0.96" 128x32 OLED
   * MCP23017 I2C IO Expander
+  * 2803 Transistor Arrays
+  * 817C Optoisolators
   #### Car stuff
   * 98-01 Ford Ranger dash
   * 1990 Ford AOD VSS and gear sensor
