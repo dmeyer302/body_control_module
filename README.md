@@ -8,7 +8,7 @@ Software to perform various functions for a car, specifically a custom hot rod b
 * VSS sensing / Speedometer output
 * SecuriCode door-mounted lock/unlock code pad
 * Intermittent wipers
-* Fading instrument cluster
+* Fading/Dimming instrument cluster
 * Fading dome lights
 * Turn signals including short press for 3 blink lane change
 
