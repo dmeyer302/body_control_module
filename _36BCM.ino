@@ -13,31 +13,34 @@
   *  
   *  Ok, you insisted, the guys at MIT get paid way too much to think this stuff up anyway so I'll just use it:
   *  
-  *  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  *  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   *  
   *  Enough of that, I'm getting back to coding.
   *  
   */
 
 #include <Arduino.h>
-#include <FreqMeasure.h>        // https://github.com/PaulStoffregen/FreqMeasure
-#include <EEPROM.h>             // https://github.com/PaulStoffregen/EEPROM
-#include <TimeLib.h>            // https://www.pjrc.com/teensy/td_libs_Time.html#teensy3
-#include <Adafruit_MCP23017.h>  // https://github.com/adafruit/Adafruit-MCP23017-Arduino-Library
+#include <FreqMeasure.h>          // https://github.com/PaulStoffregen/FreqMeasure
+#include <EEPROM.h>               // https://github.com/PaulStoffregen/EEPROM
+#include <TimeLib.h>              // https://www.pjrc.com/teensy/td_libs_Time.html#teensy3
+#include <ResponsiveAnalogRead.h> // https://github.com/dxinteractive/ResponsiveAnalogRead
+#include <Adafruit_MCP23017.h>    // https://github.com/adafruit/Adafruit-MCP23017-Arduino-Library
 //#include <Math.h>
 #include <Wire.h>
 #include <U8g2lib.h>
 
 
+
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA); // OLED Constructor, see u8g2 library or examples to find your specific display
-Adafruit_MCP23017 lightsMCP;
+Adafruit_MCP23017 lightsInMCP;
+Adafruit_MCP23017 lightsOutMCP;
 
 
 // EEPROM
 
   const byte instrumentEEPROM = 10;
   const byte hoursEEPROM = 75;
-  byte minutesEEPROM = 80;
+  const byte minutesEEPROM = 80;
   const byte engineDecMinutesEEPROM = 105;
   const byte odometerThousandsEEPROM = 200;
   const byte odometerHundredsEEPROM = 201;
@@ -52,6 +55,13 @@ Adafruit_MCP23017 lightsMCP;
       bool statusBool = 0;
       unsigned long statusOn = 0;
       unsigned long statusOff = 0;
+
+      long errorTime = -50000;
+      byte numberOfErrors = 0;
+      unsigned long errorLockoutTime = 30000;
+
+    unsigned long tempTime = 0;
+    int temp = 0;
   
     // Turn signals
       unsigned long flashTime = 0;
@@ -98,21 +108,31 @@ Adafruit_MCP23017 lightsMCP;
       byte displaySelect = 0;
       unsigned long displaySelectTime = 0;
 
-
+    // Securicode
+      bool keypadLightStatus = 0;
+      unsigned long keypadLightTime = 0;
+      byte enteredDigits = 0;
+      byte codePosition = 0;
+      byte enteredCode[5] = {0,0,0,0,0};
+      const byte code1[5] = {1,2,3,4,5};
+      const byte code2[5] = {5,4,3,2,1};
+      const byte code3[5] = {1,2,3,4,3};
 
 
 // Input Pins
-
-  const byte hazard = 3;
-  const byte leftTurn = 4;
-  const byte rightTurn = 5;
-  const byte brakePin = 6;
 
   const byte washPin = 7;
   const byte wipePin = 8;
   const byte intermittentPin = 9;
 
-  //lightsMCP
+  const byte fuelIn = 123;
+  const byte tempIn = A0;
+  ResponsiveAnalogRead fuel(fuelIn,false);
+  ResponsiveAnalogRead responsiveTemp(tempIn,false);
+
+  //const byte MCPinterrupt = 
+
+  //lightsInMCP
   const byte headlightIn =  1;
   const byte parkIn =       2;
   const byte fogIn =        3;
@@ -120,13 +140,24 @@ Adafruit_MCP23017 lightsMCP;
   const byte domeIn =       5;
   const byte instBrighter = 6;
   const byte instDimmer =   7;
+  const byte hazard =       9;
+  const byte leftTurn =     10;
+  const byte rightTurn =    11;
+  const byte brakePin =     12;
 
   const byte runIn = 40;
   const byte startIn = 44;
   
   const byte leftDoorIn = 41;
   const byte rightDoorIn = 42;
-  const byte fuelIn = 43;
+
+  // SecuriCode
+  const byte key1 = 28;
+  const byte key2 = 29;
+  const byte key3 = 30;
+  const byte key4 = 31;
+  const byte key5 = 32;
+
 
 
 // Output Pins
@@ -136,17 +167,19 @@ Adafruit_MCP23017 lightsMCP;
   const byte wipeOut = 41;
   const byte washOut = 42;
 
-  // Turn indicators
-  const byte lfOut = 14;
-  const byte rfOut = 15;
-  const byte lrOut = 16;
-  const byte rrOut = 17;
-
-  const byte headlightOut = 31;
-  const byte parkOut = 32;
-  const byte fogOut = 33;
-  const byte domeOut = 35;
-  const byte instOut = 36;
+  // lightsOutMCP
+    // Turn indicators
+    const byte lfOut = 1;
+    const byte rfOut = 2;
+    const byte lrOut = 3;
+    const byte rrOut = 4;
+  
+    const byte headlightOut = 9;
+    const byte parkOut =      10;
+    const byte fogOut =       11;
+    const byte domeOut =      12;
+    const byte instOut =      13;
+    const byte keypadLight =  33;
 
   // Idiot lights
   /*
@@ -158,6 +191,7 @@ Adafruit_MCP23017 lightsMCP;
 
   // Gauges
   const byte speedoOut = 10;
+  const byte fuelOut = 124;
   /*
    * Oil pressure
    * Temp
@@ -178,13 +212,14 @@ Adafruit_MCP23017 lightsMCP;
   void fogInterrupt();
   void status();
   void getHours();
-  void fuel();
+  void readFuel();
   void doors();
+  void securicode();
 
 
 void setup() {
   Serial.begin(9600);
-  lightsMCP.begin();
+  lightsInMCP.begin();
   u8g2.begin();
   u8g2.setContrast(EEPROM.read(instrumentEEPROM));
   u8g2.clearBuffer();
@@ -193,14 +228,7 @@ void setup() {
   u8g2.sendBuffer();
   delay(10);
 
-  // Built In RTC
-  // set the Time library to use Teensy 3.0's RTC to keep time
-  setSyncProvider(getTeensy3Time);
-  /*if (timeStatus()!= timeSet) {
-    Serial.println("Unable to sync with the RTC");
-  } else {
-    Serial.println("RTC has set the system time");
-  }*/
+  setSyncProvider(getTeensy3Time); // set the Time library to use Teensy 3.0's RTC to keep time
 
   // Uncomment to set parameters; run sketch only once and re-upload
   //EEPROM.write(hoursEEPROM,0);
@@ -212,6 +240,12 @@ void setup() {
   //EEPROM.write(fuelAlertEEPROM,128);
 
   FreqMeasure.begin(); // Must be pin 3
+
+  attachInterrupt(digitalPinToInterrupt(key1), sc1int, RISING);
+  attachInterrupt(digitalPinToInterrupt(key2), sc2int, RISING);
+  attachInterrupt(digitalPinToInterrupt(key3), sc3int, RISING);
+  attachInterrupt(digitalPinToInterrupt(key4), sc4int, RISING);
+  attachInterrupt(digitalPinToInterrupt(key5), sc5int, RISING);
   
   attachInterrupt(digitalPinToInterrupt(leftTurn), leftInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(rightTurn), rightInterrupt, RISING);
@@ -221,17 +255,17 @@ void setup() {
 
   pinMode(intermittentPin, INPUT);
 
-  // lightsMCP
-  mcp.pinMode(headlightIn, INPUT);
-  mcp.pinMode(autoLampIn, INPUT);
-  attachInterrupt(digitalPinToInterrupt(parkIn), parkInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(fogIn), fogInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(domeIn), domeInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(instBrighter), instBrightInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(instDimmer), instDimInterrupt, RISING);
+  // lightsInMCP
+  lightsInMCP.pinMode(headlightIn, INPUT);
+  lightsInMCP.pinMode(autoLampIn, INPUT);
+  attachInterrupt(digitalPinToInterrupt(parkIn),        parkInterrupt,        RISING);
+  attachInterrupt(digitalPinToInterrupt(fogIn),         fogInterrupt,         RISING);
+  attachInterrupt(digitalPinToInterrupt(domeIn),        domeInterrupt,        RISING);
+  attachInterrupt(digitalPinToInterrupt(instBrighter),  instBrightInterrupt,  RISING);
+  attachInterrupt(digitalPinToInterrupt(instDimmer),    instDimInterrupt,     RISING);
 
-  attachInterrupt(digitalPinToInterrupt(startIn), startInterrupt, RISING);
-  attachInterrupt(digitalPinToInterrupt(runIn), runInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(startIn),       startInterrupt,       RISING);
+  attachInterrupt(digitalPinToInterrupt(runIn),         runInterrupt,         RISING);
 
   pinMode(statusLED, OUTPUT);
   pinMode(speedoOut, OUTPUT);
@@ -240,6 +274,8 @@ void setup() {
   pinMode(rfOut, OUTPUT);
   pinMode(lrOut, OUTPUT);
   pinMode(rrOut, OUTPUT);
+
+  pinMode(keypadLight, OUTPUT);
 
   if(digitalRead(parkIn) == HIGH){
     parkInterrupt();
@@ -262,7 +298,8 @@ void loop() {
   getHours(); // Replace with if(key on){keyOn()}
   getMiles();
   buildDisplay();
-  
+  exteriorTemp();
+  securicode();
   //fuel();
 
 
@@ -279,10 +316,174 @@ void loop() {
   
 }
 
+void lock(){
+  Serial.println("Lock");
+}
+
+void unlock(){
+  Serial.println("Unlock");
+}
+
+void securicode(){
+  
+  if(millis() - keypadLightTime < 5000){
+    
+    //keypadLightStatus = 1;
+    
+    if(codePosition == 5 && (memcmp(enteredCode,code1,5) == 0 || memcmp(enteredCode,code2,5) == 0 || memcmp(enteredCode,code3,5) == 0)){
+      
+      unlock();
+      domeStatus = 1;
+      keypadLightStatus = 0;
+      keypadLightTime = 0;
+      codePosition = 0;
+      
+      enteredCode[0] = 0;
+      enteredCode[1] = 0;
+      enteredCode[2] = 0;
+      enteredCode[3] = 0;
+      enteredCode[4] = 0;
+
+      numberOfErrors = 0;
+    }
+
+    else if(codePosition == 5 && (memcmp(enteredCode,code1,5) != 0 || memcmp(enteredCode,code2,5) != 0 || memcmp(enteredCode,code3,5) != 0) && numberOfErrors == 4){
+      for(byte i = 0; i < 40; i++){
+        keypadLightStatus = !keypadLightStatus;
+        digitalWrite(keypadLight,keypadLightStatus);
+        delay(80);
+      }
+      keypadLightStatus = 0;
+      
+      errorTime = millis();
+      numberOfErrors = 0;
+      keypadLightStatus = 0;
+      codePosition = 0;
+
+    }
+    
+    else if(codePosition == 5 && (memcmp(enteredCode,code1,5) != 0 || memcmp(enteredCode,code2,5) != 0 || memcmp(enteredCode,code3,5) != 0) && numberOfErrors < 4){
+
+      numberOfErrors++;
+      
+      enteredCode[0] = 0;
+      enteredCode[1] = 0;
+      enteredCode[2] = 0;
+      enteredCode[3] = 0;
+      enteredCode[4] = 0;
+
+      // Blink light to indicate bad code
+      digitalWrite(keypadLight,0);
+      delay(150);
+      digitalWrite(keypadLight,1);
+      delay(150);
+      digitalWrite(keypadLight,0);
+      delay(150);
+      digitalWrite(keypadLight,1);
+      
+      keypadLightTime = millis();
+      codePosition = 0;
+    }
+
+    
+  }
+
+  else{
+    keypadLightStatus = 0;
+      enteredCode[0] = 0;
+      enteredCode[1] = 0;
+      enteredCode[2] = 0;
+      enteredCode[3] = 0;
+      enteredCode[4] = 0;
+    codePosition = 0;
+  }
+
+  if(digitalRead(key4) == HIGH && digitalRead(key5) == HIGH){ // 7/8 + 9/0 to lock
+    lock();
+    keypadLightStatus = 0;
+    domeStatus = 0;
+    keypadLightTime = 0;
+  }
+
+      /*Serial.println();
+      for(byte i = 0; i < 5; i++){
+        Serial.print(enteredCode[i]);
+      }
+      Serial.println();
+      Serial.println(codePosition);*/
+
+  
+  digitalWrite(keypadLight,keypadLightStatus);
+}
+
+void sc1int(){
+  if(millis() - keypadLightTime > 200 && millis() - errorTime > errorLockoutTime){
+  keypadLightStatus = 1;
+  keypadLightTime = millis();
+  
+  enteredCode[codePosition] = 1;
+  codePosition++;
+  }
+}
+
+void sc2int(){
+  if(millis() - keypadLightTime > 200 && millis() - errorTime > errorLockoutTime){
+  keypadLightStatus = 1;
+  keypadLightTime = millis();
+
+  enteredCode[codePosition] = 2;
+  codePosition++;
+  }
+}
+
+void sc3int(){
+  if(millis() - keypadLightTime > 200 && millis() - errorTime > errorLockoutTime){
+  keypadLightStatus = 1;
+  keypadLightTime = millis();
+  
+  enteredCode[codePosition] = 3;
+  codePosition++;
+  }
+}
+
+void sc4int(){
+  if(millis() - keypadLightTime > 200 && millis() - errorTime > errorLockoutTime){
+  keypadLightStatus = 1;
+  keypadLightTime = millis();
+
+  enteredCode[codePosition] = 4;
+  codePosition++;
+  }
+}
+
+void sc5int(){
+  if(millis() - keypadLightTime > 200 && millis() - errorTime > errorLockoutTime){
+  keypadLightStatus = 1;
+  keypadLightTime = millis();
+
+  enteredCode[codePosition] = 5;
+  codePosition++;
+  }
+}
 
 
-void fuel(){
-  if(analogRead(fuelIn) < EEPROM.read(fuelAlertEEPROM)){
+void exteriorTemp(){
+  if(millis() - tempTime > 1000){
+    tempTime = millis();
+
+    responsiveTemp.update();
+    //Serial.println(analogRead(tempIn));
+    temp = map(responsiveTemp.getValue(),700,750,70,90); // Calibrate temp readout here
+    //Serial.println(temp);
+  }
+  
+}
+
+void readFuel(){
+
+  fuel.update();
+  analogWrite(fuelOut,fuel.getValue());
+  if(fuel.getValue() < EEPROM.read(fuelAlertEEPROM)){
     displaySelect = 14;
     // play tone
     // idiot light on
@@ -414,7 +615,6 @@ void status(){
   digitalWrite(statusLED, statusBool);
 }
 
-
 void speedometer(){
 
   if (FreqMeasure.available()) {
@@ -498,9 +698,6 @@ void brake(){
     }  
 }
 
-
-
-
 void wipe(){
     if(digitalRead(wipePin) == HIGH){
       
@@ -544,11 +741,9 @@ void wipe(){
 
 }
 
-
 void washInterrupt(){
   washTime = millis();
 }
-
 
 void flash(){
 
@@ -638,7 +833,6 @@ void domeInterrupt(){
   domeStatus = !domeStatus;
 }
 
-
 void instBrightInterrupt(){
   if(digitalRead(parkIn) == HIGH){
   if((millis() - instTime > 100) && instrumentBrightness < 246){
@@ -658,7 +852,6 @@ void instBrightInterrupt(){
   }}
   
 }
-
 
 void instDimInterrupt(){
   if(digitalRead(parkIn) == HIGH){
@@ -770,10 +963,17 @@ void buildDisplay(){
 
       else if(displaySelect == 7){ // Clock and Temp
         char buf1[8];
+        char buf2[3];
+        sprintf(buf2,"%d",temp);
         u8g2.setFont(u8g2_font_logisoso24_tf);
-        u8g2.drawStr(85,32,"72");
-        
-        sprintf(buf1,"%d:%d",hourFormat12(),minute());
+        u8g2.drawStr(85,32,buf2);
+
+        if(minute() < 10){ // prints 4:03 rather than 4:3
+          sprintf(buf1,"%d:0%d",hourFormat12(),minute());
+        }
+        else{
+          sprintf(buf1,"%d:%d",hourFormat12(),minute());
+        }
         //Serial.println(buf1);
         u8g2.drawStr(0,32,buf1);
         u8g2.drawCircle(124,11,3,U8G2_DRAW_ALL); // X,Y,radius
