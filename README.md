@@ -6,6 +6,7 @@ Software to perform various functions for a car, specifically a custom hot rod b
 ### Functions include (no particular order):
 
 * VSS sensing / Speedometer output
+* SecuriCode door-mounted lock/unlock code pad
 * Intermittent wipers
 * Fading instrument cluster
 * Fading dome lights
@@ -44,6 +45,5 @@ This list is growing...
 * Tach output
 * Various gauges output
 * OTIS
-* SecuriCode door-mounted lock/unlock code pad
 
 ### And more...
