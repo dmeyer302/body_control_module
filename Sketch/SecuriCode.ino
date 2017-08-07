@@ -88,6 +88,12 @@ void securicode(){
   digitalWrite(keypadLight,keypadLightStatus);
 }
 
+void SecuriCodeMCPSetup(){
+    SecuriCodeMCP.begin(0);
+    SecuriCodeMCP.setupInterrupts(true,false,HIGH);
+    pinMode(SecuriCodeMCPInterrupt,INPUT);
+}
+
 
 /*  ================================================
  *  Interrupt Functions

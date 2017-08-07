@@ -8,18 +8,7 @@ void buildDisplay(){
        */
       
       u8g2.clearBuffer();
-
-      if(millis() - displaySelectTime > 2000){
-        displaySelect++;
-        if(displaySelect == 15){
-          displaySelect = 1;
-         }
-         displaySelectTime = millis();
-      }
-    
-    // Small text
       
-      //u8g2.setFont(u8g2_font_helvB08_tr);
       byte displayOffset = 18;
       
       if(displaySelect == 1){ // Park
@@ -78,8 +67,9 @@ void buildDisplay(){
         char buf1[8];
         char buf2[3];
         sprintf(buf2,"%d",temp);
+        byte w = u8g2.getStrWidth(buf2);
         u8g2.setFont(u8g2_font_logisoso24_tf);
-        u8g2.drawStr(85,32,buf2);
+        u8g2.drawStr(118-w,30,buf2);
 
         if(minute() < 10){ // prints 4:03 rather than 4:3
           sprintf(buf1,"%d:0%d",hourFormat12(),minute());
@@ -88,8 +78,8 @@ void buildDisplay(){
           sprintf(buf1,"%d:%d",hourFormat12(),minute());
         }
         //Serial.println(buf1);
-        u8g2.drawStr(0,32,buf1);
-        u8g2.drawCircle(124,11,3,U8G2_DRAW_ALL); // X,Y,radius
+        u8g2.drawStr(0,30,buf1);
+        u8g2.drawCircle(124,9,3,U8G2_DRAW_ALL); // X,Y,radius
         }
 
       else if(displaySelect == 8){ // Odometer
@@ -120,8 +110,16 @@ void buildDisplay(){
         }
 
       else if(displaySelect == 10){ // Trip Hours
+        char buf1[5];
+        if(minute() < 10){ // prints 4:03 rather than 4:3
+          sprintf(buf1,"%d:0%d",hourFormat12(),minute());
+        }
+        else{
+          sprintf(buf1,"%d:%d",hourFormat12(),minute());
+        }
         u8g2.setFont(u8g2_font_logisoso24_tf);
-        u8g2.drawStr(50,28,"9:56");
+        byte w = u8g2.getStrWidth(buf1);
+        u8g2.drawStr(128-w,28,buf1);
 
         u8g2.setFont(u8g2_font_helvB10_tf);
         u8g2.drawStr(0,16,"TRIP");
@@ -133,7 +131,8 @@ void buildDisplay(){
         u8g2.setFont(u8g2_font_logisoso24_tf);
         float line2 = engineHrs;
         sprintf(buf3, "%.1f", engineHrs);
-        u8g2.drawStr(60,28,buf3);
+        byte w = u8g2.getStrWidth(buf3);
+        u8g2.drawStr(128-w,28,buf3);
 
         u8g2.setFont(u8g2_font_helvB10_tf);
         u8g2.drawStr(0,16,"ENG");
@@ -142,7 +141,8 @@ void buildDisplay(){
 
       else if(displaySelect == 12){ // Oil Miles
         u8g2.setFont(u8g2_font_logisoso24_tf);
-        u8g2.drawStr(50,28,"1278");
+        byte w = u8g2.getStrWidth("1278");
+        u8g2.drawStr(128-w,28,"1278");
 
         u8g2.setFont(u8g2_font_helvB10_tf);
         u8g2.drawStr(0,16,"OIL");
@@ -152,11 +152,13 @@ void buildDisplay(){
       else if(displaySelect == 13){
         u8g2.setFont(u8g2_font_logisoso16_tf);
         u8g2.drawStr(19,24,"DOOR AJAR");
+        
         if(digitalRead(leftDoorIn) == LOW){
           u8g2.drawTriangle(0,16,8,22,8,10);
         }
-        u8g2.drawTriangle(0,16,5,20,5,12);
-        u8g2.drawTriangle(128,16,120,22,120,10);
+        if(digitalRead(rightDoorIn) == LOW){
+          u8g2.drawTriangle(128,16,120,22,120,10);
+        }
       }
 
       else if(displaySelect == 14){
@@ -166,6 +168,11 @@ void buildDisplay(){
         
       
       u8g2.sendBuffer();  
-  
+
+      displaySelect++;
+        if(displaySelect == 15){
+          displaySelect = 1;
+         }
+         displaySelectTime = millis();
 }
 

@@ -33,6 +33,7 @@
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ SCL, /* data=*/ SDA); // OLED Constructor, see u8g2 library or examples to find your specific display
 Adafruit_MCP23017 lightsInMCP;
 Adafruit_MCP23017 lightsOutMCP;
+Adafruit_MCP23017 SecuriCodeMCP;
 
 
 /*  ================================================
@@ -48,6 +49,7 @@ Adafruit_MCP23017 lightsOutMCP;
   const byte odometerOnesEEPROM = 202;
   const byte odometerTenthsEEPROM = 203;
   const byte fuelAlertEEPROM = 300;
+  const byte storedDisplaySelect = 500;
 
 
 /*  ================================================
@@ -64,8 +66,12 @@ Adafruit_MCP23017 lightsOutMCP;
       byte numberOfErrors = 0;
       unsigned long errorLockoutTime = 30000;
 
-    unsigned long tempTime = 0;
-    int temp = 0;
+      unsigned long tempTime = 0;
+      int temp = 0;
+
+      volatile bool SecuriCodeInterruptAvailable = 0;
+      volatile bool lightsInInterruptAvailable = 0;
+      volatile bool lightsOutInterruptAvailable = 0;
   
     // Turn signals
       unsigned long flashTime = 0;
@@ -137,9 +143,17 @@ Adafruit_MCP23017 lightsOutMCP;
   ResponsiveAnalogRead fuel(fuelIn,false);
   ResponsiveAnalogRead responsiveTemp(tempIn,false);
 
-  //const byte MCPinterrupt = 
+  const byte lightsInMCPinterrupt = 2;
+  const byte lightsOutMCPinterrupt = 3;
 
-  //lightsInMCP
+  const byte lightsInMCPInterrupt = 33;
+  const byte lightsOutMCPInterrupt = 34;
+  const byte SecuriCodeMCPInterrupt = 35;
+
+  const byte leftTurn =     1;
+  const byte rightTurn =    2;
+  const byte brakePin =     3;
+  const byte hazard =       4;
   const byte headlightIn =  1;
   const byte parkIn =       2;
   const byte fogIn =        3;
@@ -147,16 +161,12 @@ Adafruit_MCP23017 lightsOutMCP;
   const byte domeIn =       5;
   const byte instBrighter = 6;
   const byte instDimmer =   7;
-  const byte hazard =       9;
-  const byte leftTurn =     10;
-  const byte rightTurn =    11;
-  const byte brakePin =     12;
 
   const byte runIn = 40;
   const byte startIn = 44;
   
-  const byte leftDoorIn = 41;
-  const byte rightDoorIn = 42;
+  const byte leftDoorIn = 21;
+  const byte rightDoorIn = 22;
 
   // SecuriCode
   const byte key1 = 28;
@@ -233,18 +243,24 @@ Adafruit_MCP23017 lightsOutMCP;
 
 void setup() {
   Serial.begin(9600);
-  lightsInMCP.begin();
-  u8g2.begin();
-  u8g2.setContrast(EEPROM.read(instrumentEEPROM));
-  u8g2.clearBuffer();
-  u8g2.drawBox(0,0,128,32); // Test display on startup
-  //u8g2.drawBox(0,0,20,30);
-  u8g2.sendBuffer();
-  delay(10);
+
+  // MCP Setup
+    lightsInMCPSetup();
+    lightsOutMCPSetup();
+    SecuriCodeMCPSetup();
+      
+  // Display Setup
+    u8g2.begin();
+    u8g2.setContrast(EEPROM.read(instrumentEEPROM));
+    u8g2.clearBuffer();
+    u8g2.drawBox(0,0,128,32); // Test display on startup
+    //u8g2.drawBox(0,0,20,30);
+    u8g2.sendBuffer();
+    delay(10);
 
   setSyncProvider(getTeensy3Time); // set the Time library to use Teensy 3.0's RTC to keep time
 
-  // Uncomment to set parameters; run sketch only once and re-upload
+  // Uncomment to set parameters; run sketch only once, recomment, and re-upload
   //EEPROM.write(hoursEEPROM,0);
   //EEPROM.write(minutesEEPROM,0);
   //EEPROM.write(odometerTenthsEEPROM, 0);
@@ -252,6 +268,7 @@ void setup() {
   //EEPROM.write(odometerHundredsEEPROM, 0);
   //EEPROM.write(odometerThousandsEEPROM, 0);
   //EEPROM.write(fuelAlertEEPROM,128);
+  //EEPROM.write(storedDisplaySelect,7);
 
   FreqMeasure.begin(); // Must be pin 3
 
@@ -283,6 +300,9 @@ void setup() {
 
   pinMode(statusLED, OUTPUT);
   pinMode(speedoOut, OUTPUT);
+
+  attachInterrupt(digitalPinToInterrupt(leftDoorIn),     doors,                CHANGE);
+  attachInterrupt(digitalPinToInterrupt(rightDoorIn),    doors,                CHANGE);
   
   pinMode(lfOut, OUTPUT);
   pinMode(rfOut, OUTPUT);
@@ -311,13 +331,19 @@ void loop() {
   speedometer();
   status();
   lights();
+
+  // Order of doors() and fuel() will determine which function has priority
+  // If both conditions are true, the latter function will have its alert on the display
+  //fuel();
+  //doors();
   
   getHours(); // Replace with if(key on){keyOn()}
   getMiles();
-  buildDisplay();
+  if(millis() - displaySelectTime > 2000){
+     buildDisplay();
+      }
   exteriorTemp();
   securicode();
-  //fuel();
 
 
 
@@ -347,6 +373,7 @@ void exteriorTemp(){
     //Serial.println(analogRead(tempIn));
     temp = map(responsiveTemp.getValue(),700,750,70,90); // Calibrate temp readout here
     //Serial.println(temp);
+    if(temp < 0){temp = 0;}
   }
   
 }

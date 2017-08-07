@@ -1,10 +1,28 @@
+void lightsInMCPSetup(){
+  lightsInMCP.begin(1);
+  lightsInMCP.setupInterrupts(true,false,HIGH);
+  pinMode(lightsInMCPInterrupt,INPUT);
+}
+
+void lightsOutMCPSetup(){
+  lightsOutMCP.begin(2);
+  lightsOutMCP.setupInterrupts(true,false,HIGH);
+  pinMode(lightsOutMCPInterrupt,INPUT);
+}
+
 void doors(){
   if(digitalRead(leftDoorIn) == LOW || digitalRead(rightDoorIn) == LOW){
     domeStatus = 1;
     displaySelect = 13;
+    buildDisplay(); // Remove in final version?
     doorCloseTime = millis();
+    //displaySelectTime -= 3000;
     // play tone
   }
+  else{
+    displaySelect = EEPROM.read(storedDisplaySelect);
+    buildDisplay();
+    }
 }
 
 
