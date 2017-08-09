@@ -45,5 +45,6 @@ This list is growing...
 * Tach output
 * Various gauges output
 * OTIS
+* On-screen DST / Time Zone changes
 
 ### And more...
