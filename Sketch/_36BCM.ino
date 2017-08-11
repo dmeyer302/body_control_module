@@ -50,6 +50,7 @@ Adafruit_MCP23017 SecuriCodeMCP;
   const byte odometerTenthsEEPROM = 203;
   const byte fuelAlertEEPROM = 300;
   const byte storedDisplaySelect = 500;
+  const byte clockAdjustEEPROM = 600;
 
 
 /*  ================================================
@@ -58,6 +59,9 @@ Adafruit_MCP23017 SecuriCodeMCP;
  
 
     // General
+
+      bool fuelReset = 0; // True if user dismisses fuel alert
+      
       bool statusBool = 0;
       unsigned long statusOn = 0;
       unsigned long statusOff = 0;
@@ -116,8 +120,9 @@ Adafruit_MCP23017 SecuriCodeMCP;
     
 
     // Display
-      byte displaySelect = 0;
+      byte displaySelect = EEPROM.read(storedDisplaySelect);
       unsigned long displaySelectTime = 0;
+      unsigned long resetTime = 0;
 
     // Securicode
       bool keypadLightStatus = 0;
@@ -382,6 +387,19 @@ void keyOn(){
   getHours();
 }
 
+void keyOff(){ // Runs when vehicle is switched from On to Off
+  fuelReset = 0;
+  
+}
+
+void readFuel(){
+    /* if(analogRead(fuel) < number && fuelReset == 0
+     *  ){
+    displaySelect = 51;
+    }
+    */
+    }
+
 void getHours(){
     if(millis() - incrementalMillis > 60000){
       incrementalMillis = millis();
@@ -396,12 +414,12 @@ void getHours(){
       if(minutes >= 60){
         hours = EEPROM.read(hoursEEPROM);
         hours++;
-        EEPROM.write(hoursEEPROM,hours);
+        EEPROM.update(hoursEEPROM,hours);
         minutes = 0;
         
       }
       
-      EEPROM.write(minutesEEPROM,minutes);
+      EEPROM.update(minutesEEPROM,minutes);
       
       //Serial.println(minutes);
   
@@ -410,7 +428,7 @@ void getHours(){
       engineHrs = EEPROM.read(hoursEEPROM);
       engineHrs += engineDecMinutes;
       if(engineDecMinutes != EEPROM.read(engineDecMinutesEEPROM)){
-        EEPROM.write(engineDecMinutesEEPROM,engineDecMinutes);
+        EEPROM.update(engineDecMinutesEEPROM,engineDecMinutes);
       }
       //engineHrs = round( engineHrs * 10 ) / 10;
       //Serial.println(engineHrs);
@@ -435,23 +453,23 @@ void status(){
 void getMiles(){
   if(milesCount > pulsesPerTenth){
     
-    EEPROM.write(odometerTenthsEEPROM, EEPROM.read(odometerOnesEEPROM) + 1);
+    EEPROM.update(odometerTenthsEEPROM, EEPROM.read(odometerOnesEEPROM) + 1);
     
 
     if(EEPROM.read(odometerTenthsEEPROM) != milesCount){
-      EEPROM.write(odometerTenthsEEPROM,milesCount);
+      EEPROM.update(odometerTenthsEEPROM,milesCount);
       }
     if(EEPROM.read(odometerTenthsEEPROM) == 10){
-      EEPROM.write(odometerOnesEEPROM, EEPROM.read(odometerOnesEEPROM) + 1);
-      EEPROM.write(odometerTenthsEEPROM, 0);
+      EEPROM.update(odometerOnesEEPROM, EEPROM.read(odometerOnesEEPROM) + 1);
+      EEPROM.update(odometerTenthsEEPROM, 0);
       }
     if(EEPROM.read(odometerOnesEEPROM) == 100){
-      EEPROM.write(odometerHundredsEEPROM, EEPROM.read(odometerHundredsEEPROM) + 1);
-      EEPROM.write(odometerOnesEEPROM, 0);
+      EEPROM.update(odometerHundredsEEPROM, EEPROM.read(odometerHundredsEEPROM) + 1);
+      EEPROM.update(odometerOnesEEPROM, 0);
       }
     if(EEPROM.read(odometerHundredsEEPROM) == 10){
-      EEPROM.write(odometerThousandsEEPROM, EEPROM.read(odometerThousandsEEPROM) + 1);
-      EEPROM.write(odometerHundredsEEPROM, 0);
+      EEPROM.update(odometerThousandsEEPROM, EEPROM.read(odometerThousandsEEPROM) + 1);
+      EEPROM.update(odometerHundredsEEPROM, 0);
       }
 
     milesCount = 0;

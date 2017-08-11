@@ -49,7 +49,7 @@ void lights(){
           if(digitalRead(instBrighter) && (millis() - instTime > 400)){
             if(instrumentBrightness < 255){
               instrumentBrightness++;
-              EEPROM.write(instrumentEEPROM,instrumentBrightness);
+              EEPROM.update(instrumentEEPROM,instrumentBrightness);
               delay(5);
             }
             else if(instrumentBrightness >= 255){
@@ -63,7 +63,7 @@ void lights(){
           else if(digitalRead(instDimmer) && (millis() - instTime > 400)){
             if(instrumentBrightness > 0){
               instrumentBrightness--;
-              EEPROM.write(instrumentEEPROM,instrumentBrightness);
+              EEPROM.update(instrumentEEPROM,instrumentBrightness);
               delay(5);
             }
             else if(instrumentBrightness <= 0){
@@ -100,7 +100,7 @@ void instBrightInterrupt(){
   if((millis() - instTime > 100) && instrumentBrightness < 246){
     instrumentBrightness += 10;
     instTime = millis();
-    EEPROM.write(instrumentEEPROM,instrumentBrightness);
+    EEPROM.update(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
     //Serial.println(instrumentBrightness);
   }
@@ -108,7 +108,7 @@ void instBrightInterrupt(){
   else if(instrumentBrightness >= 246){
     instrumentBrightness = 255;
     instTime = millis();
-    EEPROM.write(instrumentEEPROM,instrumentBrightness);
+    EEPROM.update(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
     //Serial.println(instrumentBrightness);
   }}
@@ -120,7 +120,7 @@ void instDimInterrupt(){
   if((millis() - instTime > 100) && instrumentBrightness > 10){
     instrumentBrightness -= 10;
     instTime = millis();
-    EEPROM.write(instrumentEEPROM,instrumentBrightness);
+    EEPROM.update(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
     //Serial.println(instrumentBrightness);
   }
@@ -128,7 +128,7 @@ void instDimInterrupt(){
   else if(instrumentBrightness <= 10){
     instrumentBrightness = 0;
     instTime = millis();
-    EEPROM.write(instrumentEEPROM,instrumentBrightness);
+    EEPROM.update(instrumentEEPROM,instrumentBrightness);
     analogWrite(instOut,instrumentBrightness);
     //Serial.println(instrumentBrightness);
   }}
