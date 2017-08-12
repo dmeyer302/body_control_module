@@ -123,6 +123,7 @@ Adafruit_MCP23017 SecuriCodeMCP;
       byte displaySelect = EEPROM.read(storedDisplaySelect);
       unsigned long displaySelectTime = 0;
       unsigned long resetTime = 0;
+      unsigned long infoTime = 0;
 
     // Securicode
       bool keypadLightStatus = 0;
@@ -142,6 +143,10 @@ Adafruit_MCP23017 SecuriCodeMCP;
   const byte washPin = 7;
   const byte wipePin = 8;
   const byte intermittentPin = 9;
+
+  const byte infoIn = 28;
+  const byte setupIn = 29;
+  const byte resetIn = 30;
 
   const byte fuelIn = 123;
   const byte tempIn = A0;
@@ -174,9 +179,9 @@ Adafruit_MCP23017 SecuriCodeMCP;
   const byte rightDoorIn = 22;
 
   // SecuriCode
-  const byte key1 = 28;
-  const byte key2 = 29;
-  const byte key3 = 30;
+  const byte key1 = 280;
+  const byte key2 = 290;
+  const byte key3 = 300;
   const byte key4 = 31;
   const byte key5 = 32;
 
@@ -240,6 +245,21 @@ Adafruit_MCP23017 SecuriCodeMCP;
   void readFuel();
   void doors();
   void securicode();
+  void lightsInMCPSetup();
+  void lightsOutMCPSetup();
+  void SecuriCodeMCPSetup();
+  void sc1int();
+  void sc2int();
+  void sc3int();
+  void sc4int();
+  void sc5int();
+  void leftInterrupt();
+  void rightInterrupt();
+  void hazardInterrupt();
+  void brakeInterrupt();
+  void washInterrupt();
+  void parkInterrupt();
+  void lights();
 
 
 /*  ================================================
@@ -273,7 +293,8 @@ void setup() {
   //EEPROM.write(odometerHundredsEEPROM, 0);
   //EEPROM.write(odometerThousandsEEPROM, 0);
   //EEPROM.write(fuelAlertEEPROM,128);
-  //EEPROM.write(storedDisplaySelect,7);
+  //EEPROM.write(storedDisplaySelect,10);
+  //EEPROM.write(clockAdjustEEPROM,0);
 
   FreqMeasure.begin(); // Must be pin 3
 
@@ -288,6 +309,10 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(hazard), hazardInterrupt, RISING);
   attachInterrupt(digitalPinToInterrupt(brakePin), brakeInterrupt, FALLING);
   attachInterrupt(digitalPinToInterrupt(washPin), washInterrupt, RISING);
+
+  attachInterrupt(digitalPinToInterrupt(infoIn), infoInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(setupIn), setupInterrupt, RISING);
+  attachInterrupt(digitalPinToInterrupt(resetIn), resetInterrupt, RISING);
 
   pinMode(intermittentPin, INPUT);
 
@@ -344,8 +369,9 @@ void loop() {
   
   getHours(); // Replace with if(key on){keyOn()}
   getMiles();
-  if(millis() - displaySelectTime > 2000){
+  if(millis() - displaySelectTime > 400){
      buildDisplay();
+     //Serial.println(displaySelect);
       }
   exteriorTemp();
   securicode();
@@ -391,14 +417,6 @@ void keyOff(){ // Runs when vehicle is switched from On to Off
   fuelReset = 0;
   
 }
-
-void readFuel(){
-    /* if(analogRead(fuel) < number && fuelReset == 0
-     *  ){
-    displaySelect = 51;
-    }
-    */
-    }
 
 void getHours(){
     if(millis() - incrementalMillis > 60000){

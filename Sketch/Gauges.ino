@@ -30,6 +30,12 @@ void speedometer(){
 }
 
 void readFuel(){
+  /* float fuelAlertLevel = EEPROM.read(fuelAlertEEPROM);
+    fuelAlertLevel = map(fuelAlertLevel,12,120,0,1);
+    if(analogRead(fuel) * fuelAlertLevel < 256){
+       displaySelect = 51;
+       }
+    */
 
   fuel.update();
   analogWrite(fuelOut,fuel.getValue());

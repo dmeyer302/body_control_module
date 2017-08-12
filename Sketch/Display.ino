@@ -12,7 +12,7 @@ void buildDisplay(){
        *  Present code is to get display laid out.
        */
 
-      displayReset();
+      resetButtonAction();
 
       if(displaySelect < 30 && displaySelect > 19 && (millis() - displaySelectTime > 10000)){
          displaySelect = EEPROM.read(storedDisplaySelect);
@@ -83,10 +83,10 @@ void buildDisplay(){
         u8g2.drawStr(118-w,30,buf2);
 
         if(minute() < 10){ // prints 4:03 rather than 4:3
-          sprintf(buf1,"%d:0%d",hourFormat12(),minute());
+          sprintf(buf1,"%d:0%d",hourFormat12()+EEPROM.read(clockAdjustEEPROM)-10,minute());
         }
         else{
-          sprintf(buf1,"%d:%d",hourFormat12(),minute());
+          sprintf(buf1,"%d:%d",hourFormat12()+EEPROM.read(clockAdjustEEPROM)-10,minute());
         }
         //Serial.println(buf1);
         u8g2.drawStr(0,30,buf1);
@@ -123,10 +123,10 @@ void buildDisplay(){
       else if(displaySelect == 13){ // Trip Hours
         char buf1[5];
         if(minute() < 10){ // prints 4:03 rather than 4:3
-          sprintf(buf1,"%d:0%d",hourFormat12()+EEPROM.read(clockAdjustEEPROM),minute());
+          sprintf(buf1,"%d:0%d",hourFormat12()+EEPROM.read(clockAdjustEEPROM)-10,minute());
         }
         else{
-          sprintf(buf1,"%d:%d",hourFormat12()+EEPROM.read(clockAdjustEEPROM),minute());
+          sprintf(buf1,"%d:%d",hourFormat12()+EEPROM.read(clockAdjustEEPROM)-10,minute());
         }
         u8g2.setFont(u8g2_font_logisoso24_tf);
         byte w = u8g2.getStrWidth(buf1);
@@ -177,88 +177,107 @@ void buildDisplay(){
         u8g2.drawStr(7,28,"LOW FUEL");
       }
 
-      else if(displaySelect == 20){ // Clock settings
-       
-        if(EEPROM.read(clockAdjustEEPROM) == -2){
-          u8g2.drawStr(29,32,"-1");
-          u8g2.drawStr(54,32,"0");
-          u8g2.drawStr(79,32,"+1");
-          u8g2.drawStr(104,32,"+2");
+      else if(displaySelect == 20){ // Time zone / DST settings
+       u8g2.setFont(u8g2_font_crox1hb_tf);
+       u8g2.drawStr(0,10,"TIME ZONE ADJUST");
+        if(EEPROM.read(clockAdjustEEPROM) == 8){
+          u8g2.setFont(u8g2_font_crox1hb_tf); 
+          u8g2.drawStr(29,28,"-1");
+          u8g2.drawStr(56,28,"0");
+          u8g2.drawStr(79,28,"+1");
+          u8g2.drawStr(104,28,"+2");
           
-          u8g2.drawBox(3, 0, 28, 32);
-          u8g2.setDrawColor(2);
-          u8g2.drawStr(4,32,"-2");
+          u8g2.drawBox(3, 14, 14, 20);
+          u8g2.setDrawColor(0);
+          u8g2.drawStr(4,28,"-2");
+          u8g2.setDrawColor(1);
         }
 
-        else if(EEPROM.read(clockAdjustEEPROM) == -1){
-          u8g2.drawStr(4,32,"-2");
-          u8g2.drawStr(54,32,"0");
-          u8g2.drawStr(79,32,"+1");
-          u8g2.drawStr(104,32,"+2");
+        else if(EEPROM.read(clockAdjustEEPROM) == 9){
+          u8g2.setFont(u8g2_font_crox1hb_tf); 
+          u8g2.drawStr(4,28,"-2");
+          u8g2.drawStr(56,28,"0");
+          u8g2.drawStr(79,28,"+1");
+          u8g2.drawStr(104,28,"+2");
           
-          u8g2.drawBox(28, 0, 53, 32);
-          u8g2.setDrawColor(2);
-          u8g2.drawStr(29,32,"-1");
+          u8g2.drawBox(28, 14, 14, 20);
+          u8g2.setDrawColor(0);
+          u8g2.drawStr(29,28,"-1");
+          u8g2.setDrawColor(1);
         }
 
-        else if(EEPROM.read(clockAdjustEEPROM) == 0){
-          u8g2.drawStr(4,32,"-2");
-          u8g2.drawStr(29,32,"-1");
-          u8g2.drawStr(79,32,"+1");
-          u8g2.drawStr(104,32,"+2");
+        else if(EEPROM.read(clockAdjustEEPROM) == 10){
+          u8g2.setFont(u8g2_font_crox1hb_tf); 
+          u8g2.drawStr(4,28,"-2");
+          u8g2.drawStr(29,28,"-1");
+          u8g2.drawStr(79,28,"+1");
+          u8g2.drawStr(104,28,"+2");
           
-          u8g2.drawBox(53, 0, 78, 32);
-          u8g2.setDrawColor(2);
-          u8g2.drawStr(54,32,"0");
+          u8g2.drawBox(53, 14, 14, 20);
+          u8g2.setDrawColor(0);
+          u8g2.drawStr(56,28,"0");
+          u8g2.setDrawColor(1);
         }
         
-        else if(EEPROM.read(clockAdjustEEPROM) == 1){
-          u8g2.drawStr(4,32,"-2");
-          u8g2.drawStr(29,32,"-1");
-          u8g2.drawStr(54,32,"0");
-          u8g2.drawStr(104,32,"+2");
+        else if(EEPROM.read(clockAdjustEEPROM) == 11){
+          u8g2.setFont(u8g2_font_crox1hb_tf); 
+          u8g2.drawStr(4,28,"-2");
+          u8g2.drawStr(29,28,"-1");
+          u8g2.drawStr(56,28,"0");
+          u8g2.drawStr(104,28,"+2");
           
-          u8g2.drawBox(78, 0, 103, 32);
-          u8g2.setDrawColor(2);
-          u8g2.drawStr(79,32,"+1");
+          u8g2.drawBox(78, 14, 14, 20);
+          u8g2.setDrawColor(0);
+          u8g2.drawStr(79,28,"+1");
+          u8g2.setDrawColor(1);
         }
 
-        else if(EEPROM.read(clockAdjustEEPROM) == 2){
-          u8g2.drawStr(4,32,"-2");
-          u8g2.drawStr(29,32,"-1");
-          u8g2.drawStr(54,32,"0");
-          u8g2.drawStr(79,32,"+1");
+        else if(EEPROM.read(clockAdjustEEPROM) == 12){
+          u8g2.setFont(u8g2_font_crox1hb_tf); 
+          u8g2.drawStr(4,28,"-2");
+          u8g2.drawStr(29,28,"-1");
+          u8g2.drawStr(56,28,"0");
+          u8g2.drawStr(79,28,"+1");
           
-          u8g2.drawBox(103, 0, 128, 32);
-          u8g2.setDrawColor(2);
-          u8g2.drawStr(104,32,"+2");
+          u8g2.drawBox(103, 14, 14, 20);
+          u8g2.setDrawColor(0);
+          u8g2.drawStr(104,28,"+2");
+          u8g2.setDrawColor(1);
+        }
+
+        else{
+          u8g2.setFont(u8g2_font_crox1hb_tf); 
+          u8g2.drawStr(104,32,"clk err undef EEPROM");
         }
         
       }
 
       else if(displaySelect == 21){
-        int f = map(fuelAlertEEPROM,0,255,12,116);
+        int f = EEPROM.read(fuelAlertEEPROM);
         u8g2.setFont(u8g2_font_helvB10_tf);
-        u8g2.drawStr(10,50,"LOW FUEL ALERT");
-        u8g2.drawStr(0,21,"E");
-        u8g2.drawStr(120,21,"F");
-        u8g2.drawLine(f,12,f,32);
+        u8g2.drawStr(0,30,"E");
+        u8g2.drawStr(120,30,"F");
+        u8g2.drawLine(f,16,f,32);
+        u8g2.drawLine(f+1,16,f+1,32);
+        u8g2.setFont(u8g2_font_crox1hb_tf); 
+        u8g2.drawStr(10,10,"LOW FUEL ALERT");
       }
 
       else{
+        char buf1[18];
         u8g2.setFont(u8g2_font_helvB10_tf);
         sprintf(buf1,"displaySelect = %d",displaySelect);
         u8g2.drawStr(0,12,buf1);
-        u8g2.drawStr(0,32,"ERROR! UNDEFINED DISPLAY");
+        u8g2.drawStr(0,32,"ERR! UNDEF DISP");
       }
         
       
       u8g2.sendBuffer();  
 
-      displaySelect++;
+      /*displaySelect++;
         if(displaySelect == 15){
           displaySelect = 1;
          }
-         displaySelectTime = millis();
+         displaySelectTime = millis();*/
 }
 
