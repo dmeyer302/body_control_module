@@ -21,6 +21,7 @@ Software to perform various functions for a car, specifically a custom hot rod b
 * RTC-based clock display
 * Door ajar indication (OLED and idiot light)
 * Low fuel indication (OLED and idiot light)
+* On-screen DST / Time Zone changes
 
 ### Hardware used
 This list is growing...
@@ -45,6 +46,5 @@ This list is growing...
 * Tach output
 * Various gauges output
 * OTIS
-* On-screen DST / Time Zone changes
 
 ### And more...
